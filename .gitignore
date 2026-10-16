@@ -1,0 +1,8 @@
+/up
+/data/
+/screenshots/*/
+.DS_Store
+/.idea/go.imports.xml
+/.idea/modules.xml
+/.idea/pingpong.iml
+/.idea/vcs.xml
