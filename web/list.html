@@ -1,0 +1,25 @@
+{{define "main"}}<main data-red="{{.Red}}" data-state="{{.Overall}}">
+{{template "chips" .}}
+<table>
+<tbody>
+{{range .Monitors}}{{template "row" ($.Row .)}}
+{{end}}</tbody>
+</table>
+<p class="muted empty">no monitors match</p>
+</main>{{end}}
+
+{{define "chips"}}<nav class="chips" aria-label="filter by state">
+<a class="chip{{if not .State}} on{{end}}" href="{{.Link "state" ""}}">all <span class="n">{{.Total}}</span></a>
+{{range .States}}<a class="chip{{if eq .State $.State}} on{{end}}" href="{{$.Link "state" .State}}">{{if eq .State "paused"}}<span class="ico" role="img" aria-label="paused" title="paused">❚❚</span>{{else}}{{template "dot" .State}}{{end}}<span class="n">{{.N}}</span></a>
+{{end}}
+{{with .TagLinks .Tags}}<span class="sep"></span>{{template "tags" .}}{{end}}
+</nav>{{end}}
+
+{{define "row"}}<tr data-href="/monitor/{{.Name}}" data-name="{{.Name}}" data-pos="{{.Pos}}">
+<td class="state">{{template "state" .}}</td>
+<td class="type">{{template "type" .Type}}</td>
+<td><a href="/monitor/{{.Name}}">{{.Name}}</a>{{with .Description}}<div class="desc muted">{{.}}</div>{{end}}</td>
+<td class="muted desc times">{{template "times" .}}</td>
+<td class="tags">{{template "tags" (.Page.TagLinks .Tags)}}</td>
+<td class="actions">{{template "check" .}}</td>
+</tr>{{end}}
