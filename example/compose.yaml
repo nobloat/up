@@ -1,0 +1,12 @@
+services:
+  up:
+    image: ghcr.io/nobloat/up:latest
+    restart: unless-stopped
+    command: ["-config", "/config"]
+    environment:
+      TZ: Europe/Vienna       # times shown in the UI
+    volumes:
+      - ./config:/config:ro   # directory mount, so edits are picked up by the reload
+      - ./data:/data          # audit CSVs; needs chown 65534:65534
+    ports:
+      - "127.0.0.1:7493:7493" # TLS proxy in front

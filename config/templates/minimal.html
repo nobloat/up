@@ -1,0 +1,10 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>{{.Title}}</title>
+<pre style="white-space: pre-wrap">
+{{.Title}} ({{.State}})
+{{range .Monitors}}
+{{- if eq .State "green"}}[ ok ]{{else if eq .State "yellow"}}[warn]{{else}}[DOWN]{{end}} {{.Name}}{{with .Description}} - {{.}}{{end}}{{if .Paused}} (paused{{with .PauseReason}}: {{.}}{{end}}){{end}}
+{{end -}}
+</pre>

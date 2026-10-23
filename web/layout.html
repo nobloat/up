@@ -1,0 +1,75 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>][ up{{if .Red}} ({{.Red}} failing){{end}}</title>
+<link rel="icon" id="favicon" href="{{favicon .Overall}}">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/app-icon.png">
+<meta name="apple-mobile-web-app-title" content="up">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafaf8">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15171a">
+<script>try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+</head>
+<body>
+<div id="conn" role="alert" hidden>⚠︎ disconnected: live updates paused, reconnecting…</div>
+<header>
+<a href="/" class="logo" aria-label="up: all monitors" title="all monitors">{{template "mark" .Overall}}</a>
+<form action="/" method="get" role="search">
+<span class="searchbox"><span class="prompt" aria-hidden="true">›</span><input id="q" name="q" value="{{.Q}}" placeholder="search by name" aria-label="search by name" autocomplete="off"><button type="button" id="clear" aria-label="clear search" title="clear search (esc)" hidden>×</button><kbd class="hint" aria-hidden="true">/</kbd></span>
+{{with .State}}<input type="hidden" name="state" value="{{.}}">{{end}}{{range .Tag}}<input type="hidden" name="tag" value="{{.}}">{{end}}
+</form>
+<button type="button" id="notify" class="round" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5h12l-1.5-2.2V10a4.5 4.5 0 0 0-9 0v4.3z"/><path d="M10.2 19a1.9 1.9 0 0 0 3.6 0"/><path class="slash" d="M4.5 4.5l15 15"/></svg></button>
+<button type="button" id="theme" class="round" hidden></button>
+</header>
+{{range .Failing}}<p class="banner red" role="alert">notifier <b>{{.Notifier}}</b> failing since {{template "when" .Since}}: {{.Err}}</p>
+{{end}}{{template "main" .}}
+<dialog id="pause-dialog">
+<form method="post">
+<p>Pause <b id="pause-name"></b>?</p>
+<p><label>Reason <span class="muted">(public, shown on status pages)</span><br><input name="reason" size="40" placeholder="e.g. database maintenance"></label></p>
+<fieldset class="ends"><legend>Resume</legend>
+<label><input type="radio" name="end" value="" checked> manually</label>
+<label><input type="radio" name="end" value="for"> after <input name="for" size="6" placeholder="2h" list="pause-for" pattern="\d+d(\d+(\.\d+)?(h|m|s))*|(\d+(\.\d+)?(h|m|s))+" title="a duration like 30m, 2h, 1h30m or 7d"></label>
+<label><input type="radio" name="end" value="at"> at <input type="datetime-local" id="pause-at"></label>
+<output id="pause-end" class="muted"></output>
+</fieldset>
+<datalist id="pause-for"><option value="15m"><option value="30m"><option value="1h"><option value="2h"><option value="4h"><option value="8h"><option value="12h"><option value="1d"><option value="2d"><option value="3d"><option value="7d"><option value="14d"></datalist>
+<input type="hidden" name="until">
+<p class="actions"><button>pause <kbd>enter</kbd></button> <button type="submit" formmethod="dialog" formnovalidate>cancel <kbd>esc</kbd></button></p>
+</form>
+</dialog>
+{{template "footer"}}
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>{{end}}
+
+{{define "check"}}{{if ne .Type "push"}}<form method="post" action="/api/monitors/{{.Name}}/check" class="check{{if .Checking}} busy{{end}}"><button title="check now (c)" aria-label="check now"{{if .Checking}} aria-busy="true"{{end}}><span class="ico" aria-hidden="true">↻</span><span class="lbl"> check now</span> <kbd>c</kbd></button></form>{{end}}{{end}}
+
+{{define "pause"}}{{if .Paused}}<form method="post" action="/api/monitors/{{.Name}}/resume" class="resume"><button title="resume (p)"><span class="ico" aria-hidden="true">▶︎</span> resume <kbd>p</kbd></button></form>
+{{else}}<form method="post" action="/api/monitors/{{.Name}}/pause" class="pause" data-name="{{.Name}}"><button title="pause (p)"><span class="ico" aria-hidden="true">❚❚</span> pause <kbd>p</kbd></button></form>{{end}}{{end}}
+
+{{define "dot"}}<span class="dot {{.}}" role="img" aria-label="{{.}}" title="{{.}}"></span>{{end}}
+
+{{define "state"}}<span class="st{{if .Paused}} is-paused{{end}}{{if .Checking}} checking{{end}}">{{template "dot" .State}}</span>{{if .Paused}}<span class="paused" role="img" aria-label="paused" title="paused{{with .PauseReason}}: {{.}}{{end}}">❚❚</span>{{end}}{{end}}
+
+{{define "tags"}}{{range .}}<a class="tag{{if .On}} on{{end}}" href="{{.URL}}">{{.Name}}</a>{{end}}{{end}}
+
+{{define "rel"}}<time datetime="{{.Format "2006-01-02T15:04:05Z07:00"}}" title="{{template "ts" .}}" data-rel>{{rel . false}}</time>{{end}}
+
+{{define "relnext"}}<time datetime="{{.Format "2006-01-02T15:04:05Z07:00"}}" title="{{template "ts" .}}" data-rel="next">{{rel . true}}</time>{{end}}
+
+{{define "pages"}}{{range $i, $p := .}}{{if $i}} · {{end}}<a href="/status/{{$p.Slug}}">{{$p.Title}}</a>{{end}}{{end}}
+
+{{define "type"}}<span class="ico type" role="img" aria-label="{{.}} monitor" title="{{.}} monitor">{{if eq . "http"}}⇄{{else if eq . "metric"}}∿{{else if eq . "promql"}}∑{{else if eq . "push"}}⇡{{else}}·{{end}}</span>{{end}}
+
+{{define "times"}}<span class="times" title="last check → next check">{{with .LastCheck}}{{template "rel" .Time}}{{else}}–{{end}}{{if not .NextCheck.IsZero}} → {{template "relnext" .NextCheck}}{{end}}</span>{{end}}
+
+{{define "when"}}{{if .IsZero}}unknown{{else}}{{template "ts" .}} <span class="muted">({{template "rel" .}})</span>{{end}}{{end}}
+
+{{define "evicon"}}{{if eq .Event "state"}}{{template "dot" .State}}{{else}}<span class="ico" role="img" aria-label="{{.Event}}" title="{{.Event}}">{{if eq .Event "paused"}}❚❚{{else if eq .Event "resumed"}}▶︎{{else if eq .Event "push"}}⇡{{else if eq .Event "signal"}}⇢{{else if eq .Event "check"}}↻{{else if eq .Event "start"}}▲{{else if eq .Event "stop"}}■{{else}}·{{end}}</span>{{end}}{{end}}
+
+{{/* every timestamp in the UI: server-local time with zone; audit rows come from the CSV in UTC */}}
+{{define "ts"}}{{.Local.Format "2006-01-02 15:04:05 MST"}}{{end}}

@@ -1,0 +1,29 @@
+{{define "main"}}<main data-red="{{.Red}}" data-state="{{.Overall}}"{{if and .M .M.Checking}} class="checking"{{end}}>
+{{with .M}}
+<div class="head"><h1>{{template "state" .}} {{template "type" .Type}} {{.Name}}</h1>
+<div class="buttons">{{template "check" .}} {{template "pause" .}}</div></div>
+<p class="sub">{{with .Description}}{{linkify .}}<br>{{end}}{{template "tags" ($.TagLinks .Tags)}}{{with $.PagesFor .Tags}} <span class="muted">on {{template "pages" .}}</span>{{end}}</p>
+<p class="banner {{.State}}">{{with .Reason}}{{linkify .}} {{end}}<span class="muted">since {{template "rel" .Since}}<br>
+checked {{template "times" .}}{{with .LastCheck}} in {{.Duration}}{{end}}{{with .Uptime}} · <span title="green vs. red time since {{template "ts" .Since}}; retries and unknown time don't count">uptime <b>{{.Pct}}</b>, <b>{{.Down}}</b> down</span>{{end}}</span></p>
+{{if .Paused}}<p class="banner pause"><span class="ico" role="img" aria-label="paused" title="paused">❚❚</span> {{or .PauseReason "no reason given"}} <span class="muted">since {{template "rel" .PausedSince}}{{if not .PausedUntil.IsZero}} · until {{template "ts" .PausedUntil}} ({{template "relnext" .PausedUntil}}){{end}} · shown on status pages</span></p>{{end}}
+{{with .LastCheck}}{{with .Table}}
+<table class="samples">
+{{with .Common}}<thead><tr><th colspan="3"><code>{{.}}</code></th></tr></thead>{{end}}
+<tbody>{{range .Rows}}<tr><td class="state">{{if .OK}}{{template "dot" "green"}}{{else}}{{template "dot" "red"}}{{end}}</td><td><code>{{.Labels}}</code></td><td class="num"><code>{{.Value}}</code></td></tr>{{end}}</tbody>
+</table>{{end}}{{end}}
+<details class="config"><summary><h2>configuration</h2></summary>
+<table class="config">
+<tbody>{{range $.Config}}<tr><th>{{.Key}}</th><td><code>{{linkify .Value}}</code>{{if .IsURL}} <button type="button" class="copy" data-copy="{{.Value}}" title="copy" aria-label="copy {{.Key}}">⧉</button>{{end}}</td></tr>{{end}}
+{{with $.Cfg}}<tr><th>interval</th><td><code>{{.Interval}}</code></td></tr>
+{{with .Grace}}<tr><th>grace</th><td><code>{{.}}</code></td></tr>{{end}}
+{{if .RetryCount}}<tr><th>retry_count</th><td><code>{{.RetryCount}}</code></td></tr><tr><th>retry_interval</th><td><code>{{.RetryInterval}}</code></td></tr>{{end}}
+{{if ne .Type "push"}}<tr><th>timeout</th><td><code>{{.Timeout}}</code></td></tr>{{end}}
+<tr><th>notifiers</th><td><code>{{range $i, $n := .Notifiers}}{{if $i}}, {{end}}{{$n}}{{else}}nobody{{end}}</code></td></tr>{{end}}</tbody>
+</table>
+</details>
+{{end}}
+<h2>audit log</h2>
+<table class="audit">
+<tbody>{{range .Log}}<tr><td class="ev">{{template "evicon" .}}</td><td class="muted ts">{{template "ts" .Time}}</td><td><code>{{linkify .Message}}</code></td></tr>{{end}}</tbody>
+</table>
+</main>{{end}}

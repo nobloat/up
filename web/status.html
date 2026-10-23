@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}}</title>
+<link rel="icon" href="{{favicon .State}}">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main>
+<h1 class="logo">{{template "mark" .State}}{{.Title}}</h1>
+<ul class="cards">
+{{range .Monitors}}<li class="card {{.State}}{{if .Paused}} is-paused{{end}}">
+<h2><span class="dot {{.State}}" role="img" aria-label="{{.State}}" title="{{.State}}"></span>{{.Name}}</h2>
+{{with .Description}}<p>{{.}}</p>{{end}}
+{{if .Paused}}<p class="muted">❚❚ paused{{with .PauseReason}}: {{.}}{{end}}</p>{{end}}
+</li>
+{{end}}</ul>
+</main>
+{{template "footer"}}
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "up",
+  "short_name": "up",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#15171a",
+  "theme_color": "#fafaf8",
+  "icons": [{"src": "/static/app-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]
+}
