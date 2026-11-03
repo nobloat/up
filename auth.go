@@ -59,8 +59,9 @@ func (a *App) auth(h http.Handler) http.Handler {
 
 func (a *App) resolve(r *http.Request) *User {
 	c := a.cfg.Load()
-	if name, pw, ok := r.BasicAuth(); ok {
-		if c.Auth.User == "" || subtle.ConstantTimeCompare([]byte(name), []byte(c.Auth.User))&subtle.ConstantTimeCompare([]byte(pw), []byte(c.Auth.Password)) != 1 {
+	if r.Header.Get("Authorization") != "" { // never falls through to the IdP headers: the proxy lets these requests skip the IdP
+		name, pw, ok := r.BasicAuth()
+		if !ok || c.Auth.User == "" || subtle.ConstantTimeCompare([]byte(name), []byte(c.Auth.User))&subtle.ConstantTimeCompare([]byte(pw), []byte(c.Auth.Password)) != 1 {
 			return nil
 		}
 		return &User{Name: name, Role: admin}

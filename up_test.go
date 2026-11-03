@@ -2006,4 +2006,10 @@ func TestUntrustedProxy(t *testing.T) {
 	if u := a.resolve(r); u == nil || u.Role != admin {
 		t.Fatal("trusted proxy")
 	}
+	for _, h := range []string{"Basic !!!", "Basic", "Bearer x"} { // these skip the IdP at the proxy, so the headers are the client's
+		r.Header.Set("Authorization", h)
+		if a.resolve(r) != nil {
+			t.Fatalf("%q fell through to the IdP headers", h)
+		}
+	}
 }
