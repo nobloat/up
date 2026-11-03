@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/textproto"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -413,7 +414,7 @@ auth.password = pw # not a comment
 heartbeat.urls = http://a/, http://b/
 `, filepath.Join(e.dir, "data")))
 	write("mail.notifier.conf", "type = smtp\nhost = h\nfrom = f\nto = a@x, b@x\nport = 25\n")
-	write("prod/api.monitor.conf", `type = http
+	write("api.monitor.conf", `type = http
 interval = 1m
 tags = public, prod
 notifiers = mail
@@ -433,9 +434,9 @@ max_redirects = 0
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := cfg.Monitors[1].HTTP
-	if len(cfg.Monitors) != 2 || cfg.Monitors[0].Name != "job" || cfg.Monitors[0].Push.Token != "0123456789abcdef" || cfg.Monitors[1].Name != "prod/api" ||
-		!slices.Equal(cfg.Monitors[1].Tags, []string{"public", "prod"}) || h.URL != "http://x/?a=b" || h.Headers["X-Api-Key"] != "k=1" ||
+	h := cfg.Monitors[0].HTTP
+	if len(cfg.Monitors) != 2 || cfg.Monitors[1].Name != "job" || cfg.Monitors[1].Push.Token != "0123456789abcdef" || cfg.Monitors[0].Name != "api" ||
+		!slices.Equal(cfg.Monitors[0].Tags, []string{"public", "prod"}) || h.URL != "http://x/?a=b" || h.Headers["X-Api-Key"] != "k=1" ||
 		!slices.Equal(h.AcceptedStatus, []int{200, 204}) || h.equals != "1" || *h.MaxRedirects != 0 ||
 		cfg.Auth.Password != "pw # not a comment" || len(cfg.Heartbeat.URLs) != 2 ||
 		!slices.Equal(cfg.Notifiers["mail"].To, []string{"a@x", "b@x"}) || cfg.Notifiers["mail"].Port != 25 ||
@@ -449,7 +450,7 @@ max_redirects = 0
 	write("broken.monitor.conf", "type = http\n")
 	write("job.monitor.conf", "type = push\ninterval = 1h\ntoken = 0123456789abcdef\nnotifiers = mail, nope\n")
 	cfg, err = loadConfig(e.dir)
-	if err != nil || len(cfg.Monitors) != 2 || !slices.Equal(cfg.Monitors[0].Notifiers, []string{"mail"}) || len(cfg.errs) != 2 {
+	if err != nil || len(cfg.Monitors) != 2 || !slices.Equal(cfg.Monitors[1].Notifiers, []string{"mail"}) || len(cfg.errs) != 2 {
 		t.Fatalf("partial load: %v %+v %v", err, cfg.Monitors, cfg.errs)
 	}
 	os.Remove(filepath.Join(e.dir, "broken.monitor.conf"))
@@ -1476,20 +1477,16 @@ func TestDottedName(t *testing.T) {
 	})
 }
 
-func TestSlashName(t *testing.T) {
+func TestMaskedURL(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		e := newEnv(t)
 		e.serve("target:80", func(w http.ResponseWriter, r *http.Request) {}, nil)
 		e.start(e.cfg(`"monitors": [
-			{"name": "prod/api", "type": "http", "interval": "1m", "http": {"url": "http://u:urlpw@target/x?api_key=qsecret&format=json"}},
-			{"name": "prod/down", "type": "http", "interval": "1m", "http": {"url": "http://nohost/?token=qsecret2"}},
-			{"name": "jobs/backup", "type": "push", "interval": "1h", "push": {"token": "0123456789abcdef"}}]`))
-		e.wantState("prod/api", green)
-		if _, err := os.Stat(filepath.Join(e.dir, "data", "prod+api.csv")); err != nil {
-			t.Fatal(err)
-		}
-		b := e.get("/monitor/prod/api")
-		for _, want := range []string{"<th>interval</th><td><code>1m</code>", "<th>notifiers</th><td><code>nobody</code>", `action="/api/monitors/prod/api/check"`, "format=json", "u:" + masked + "@target", "api_key=" + masked} {
+			{"name": "api", "type": "http", "interval": "1m", "http": {"url": "http://u:urlpw@target/x?api_key=qsecret&format=json"}},
+			{"name": "down", "type": "http", "interval": "1m", "http": {"url": "http://nohost/?token=qsecret2"}}]`))
+		e.wantState("api", green)
+		b := e.get("/monitor/api")
+		for _, want := range []string{"<th>interval</th><td><code>1m</code>", "<th>notifiers</th><td><code>nobody</code>", `action="/api/monitors/api/check"`, "format=json", "u:" + masked + "@target", "api_key=" + masked} {
 			if !strings.Contains(b, want) {
 				t.Fatalf("detail lacks %q: %s", want, b)
 			}
@@ -1497,18 +1494,9 @@ func TestSlashName(t *testing.T) {
 		if strings.Contains(b, "urlpw") || strings.Contains(b, "qsecret") || strings.Contains(b, "<th>name</th>") {
 			t.Fatalf("detail leaks a secret or shows generic options: %s", b)
 		}
-		e.post("/api/monitors/prod/api/pause", "")
-		if !e.view("prod/api").Paused {
-			t.Fatal("not paused")
-		}
-		if v := e.wantState("prod/down", red); v.Reason == "" || strings.Contains(v.Reason, "qsecret2") {
+		if v := e.wantState("down", red); v.Reason == "" || strings.Contains(v.Reason, "qsecret2") {
 			t.Fatalf("reason %q", v.Reason)
 		}
-		if resp, _ := e.do("GET", "/push/jobs/backup/0123456789abcdef", "", ""); resp.StatusCode != 200 {
-			t.Fatal(resp.StatusCode)
-		}
-		synctest.Wait()
-		e.wantState("jobs/backup", green)
 	})
 }
 
@@ -1573,8 +1561,7 @@ func TestAPIAndUI(t *testing.T) {
 			!strings.Contains(b, `data-state="red"`) || !strings.Contains(b, `href="/static/favicon-red.svg"`) || !strings.Contains(b, `class="mark red"`) {
 			t.Fatalf("list: %s", b)
 		}
-		if b := e.get("/"); strings.Contains(b, `href="/status/`) ||
-
+		if b := e.get("/"); !strings.Contains(b, `<a href="/status/public">Example Status</a> <a href="/edit/page/public"`) ||
 			!strings.Contains(e.get("/monitor/web"), `<a href="/status/public">Example Status</a>`) || strings.Contains(e.get("/monitor/internal"), `<span class="muted">on `) {
 			t.Fatal("status page links missing")
 		}
@@ -2012,4 +1999,165 @@ func TestUntrustedProxy(t *testing.T) {
 			t.Fatalf("%q fell through to the IdP headers", h)
 		}
 	}
+}
+
+func TestEditMonitor(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		e.serve("target:80", func(w http.ResponseWriter, r *http.Request) {}, nil)
+		e.start(e.cfg(`"trusted_proxies": ["10.0.0.0/8"], "role": {"viewer": ["up-viewer"], "editor": ["up-editor"]}, "access": {"team-a": ["prod"]}, "notifiers": {"chat": {"type": "webhook", "url": "http://hook/"}},
+			"monitors": [{"name": "a", "type": "push", "interval": "1m", "push": {"token": "tok-a-0123456789abcdef"}}]`))
+		form := func(v url.Values) (int, string) {
+			resp, b := e.post("/edit", v.Encode(), "Content-Type", "application/x-www-form-urlencoded")
+			return resp.StatusCode, b
+		}
+		conf := "type = http\r\ninterval = 1m\r\nurl = http://target/\r\nnotifiers = chat\r\n"
+		file := filepath.Join(e.dir, "b.monitor.conf")
+
+		if b := e.get("/monitor/a"); !strings.Contains(b, `href="/new"`) {
+			t.Fatal("no new button in the header")
+		}
+		for _, u := range []*User{{Role: admin}, {Role: editor, Tags: []string{"prod"}}} {
+			for _, tm := range confTemplates(u) {
+				p := filepath.Join(t.TempDir(), "t.conf")
+				os.WriteFile(p, []byte(tm.Conf), 0o600)
+				if tm.Kind == "page" {
+					sp := &StatusPageConfig{Slug: "t"}
+					if err := decodeConf(p, sp, nil); err != nil || sp.validate(e.dir) != nil || u.Role < admin && sp.Tag != "prod" {
+						t.Fatalf("page template: %v %+v", err, sp)
+					}
+					continue
+				}
+				if m, err := parseMonitor(p, "t"); err != nil || m.Type != tm.Type || u.Role < admin && !slices.Equal(m.Tags, u.Tags) {
+					t.Fatalf("%s template: %v %+v", tm.Type, err, m)
+				}
+			}
+		}
+		if b := e.get("/new"); !strings.Contains(b, `data-conf="type = push`) {
+			t.Fatalf("no type dropdown: %s", b)
+		}
+		if c, _ := form(url.Values{"name": {"b"}, "conf": {conf}, "new": {"1"}}); c != 303 {
+			t.Fatalf("create: %d", c)
+		}
+		if b, _ := os.ReadFile(file); string(b) != strings.ReplaceAll(conf, "\r", "") {
+			t.Fatalf("file: %q", b)
+		}
+		e.view("b") // no reload wait
+		if b := e.get("/edit/monitor/b"); !strings.Contains(b, "url = http://target/") || !strings.Contains(e.get("/monitor/b"), `href="/edit/monitor/b"`) {
+			t.Fatalf("edit form: %s", b)
+		}
+		for want, v := range map[string]url.Values{
+			"already exists":     {"name": {"b"}, "conf": {conf}, "new": {"1"}},
+			"b.monitor.conf:2":   {"name": {"b"}, "conf": {"type = http\nnope\n"}},
+			"unknown key":        {"name": {"b"}, "conf": {conf + "bogus = 1\n"}},
+			`unknown notifier`:   {"name": {"b"}, "conf": {"type = http\ninterval = 1m\nurl = http://target/\nnotifiers = nobody\n"}},
+			"by another monitor": {"name": {"c"}, "conf": {"type = push\ninterval = 1m\ntoken = tok-a-0123456789abcdef\n"}, "new": {"1"}},
+			"must match":         {"name": {"../x"}, "conf": {conf}, "new": {"1"}},
+			"prod/x&#34; must":   {"name": {"prod/x"}, "conf": {conf}, "new": {"1"}},
+		} {
+			if c, b := form(v); c != 400 || !strings.Contains(b, want) {
+				t.Fatalf("%s: %d %s", want, c, b)
+			}
+		}
+		if b, _ := os.ReadFile(file); string(b) != strings.ReplaceAll(conf, "\r", "") {
+			t.Fatalf("failed save changed the file: %q", b)
+		}
+		if c, _ := form(url.Values{"name": {"b"}, "conf": {strings.Replace(conf, "1m", "2m", 1)}}); c != 303 || !strings.Contains(e.get("/monitor/b"), "<code>2m</code>") {
+			t.Fatalf("update: %d", c)
+		}
+		as := func(groups string, v url.Values) (int, string) {
+			resp, b := e.do("POST", "/edit", "", v.Encode(), "Content-Type", "application/x-www-form-urlencoded", "Remote-User", "eve", "Remote-Groups", groups)
+			return resp.StatusCode, b
+		}
+		mon := func(tags string) string {
+			return "type = http\ninterval = 1m\nurl = http://target/\ntags = " + tags + "\n"
+		}
+		if c, _ := as("up-viewer,team-a", url.Values{"name": {"x"}, "conf": {mon("prod")}, "new": {"1"}}); c != 403 {
+			t.Fatalf("viewer create: %d", c)
+		}
+		if resp, _ := e.do("GET", "/edit/monitor/a", "", "", "Remote-User", "eve", "Remote-Groups", "up-editor,team-a"); resp.StatusCode != 404 {
+			t.Fatalf("editor edit outside tags: %d", resp.StatusCode)
+		}
+		for want, v := range map[string]url.Values{
+			"a: not found":                     {"name": {"a"}, "delete": {"1"}},
+			"at least one of prod":             {"name": {"x"}, "conf": {"type = http\ninterval = 1m\nurl = http://target/\n"}, "new": {"1"}},
+			"db&#34; is not allowed, use prod": {"name": {"x"}, "conf": {mon("prod, db")}, "new": {"1"}},
+			"by another monitor":               {"name": {"x"}, "conf": {"type = push\ninterval = 1m\ntags = prod\ntoken = tok-a-0123456789abcdef\n"}, "new": {"1"}},
+		} {
+			if c, b := as("up-editor,team-a", v); c != 400 || !strings.Contains(b, want) {
+				t.Fatalf("editor %s: %d %s", want, c, b)
+			}
+		}
+		if _, b := e.do("GET", "/new", "", "", "Remote-User", "eve", "Remote-Groups", "up-editor,team-a"); !strings.Contains(b, "tags you may use: <b>prod</b>") || !strings.Contains(b, "tags = prod\n") {
+			t.Fatalf("editor hint: %s", b)
+		}
+		if b := e.get("/new"); !strings.Contains(b, "tags you may use: any") {
+			t.Fatal("admin hint")
+		}
+		if c, _ := as("up-editor,team-a", url.Values{"name": {"x"}, "conf": {mon("prod")}, "new": {"1"}}); c != 303 {
+			t.Fatalf("editor create: %d", c)
+		}
+		os.WriteFile(filepath.Join(e.dir, "x.monitor.conf"), []byte(mon("prod, db")), 0o600) // an admin adds db
+		sleep(reloadInterval)
+		if _, b := e.do("GET", "/edit/monitor/x", "", "", "Remote-User", "eve", "Remote-Groups", "up-editor,team-a"); !strings.Contains(b, "tags you may use: <b>db, prod</b>") {
+			t.Fatalf("existing tags hint: %s", b)
+		}
+		if c, b := as("up-editor,team-a", url.Values{"name": {"x"}, "conf": {mon("db, prod") + "description = keeps db\n"}}); c != 303 {
+			t.Fatalf("editor keeps existing tag: %d %s", c, b)
+		}
+		if c, _ := as("up-editor,team-a", url.Values{"name": {"x"}, "delete": {"1"}}); c != 303 {
+			t.Fatalf("editor delete: %d", c)
+		}
+		if c, _ := form(url.Values{"name": {"b"}, "delete": {"1"}}); c != 303 {
+			t.Fatalf("delete: %d", c)
+		}
+		if resp, _ := e.do("GET", "/api/monitors/b", "admin", ""); resp.StatusCode != 404 {
+			t.Fatalf("deleted monitor still there: %d", resp.StatusCode)
+		}
+		if resp, _ := e.do("GET", "/edit/monitor/..%2Fup", "admin", ""); resp.StatusCode != 404 {
+			t.Fatalf("escaped traversal: %d", resp.StatusCode)
+		}
+
+		// status pages: same rules, the tag is the page's one tag
+		os.WriteFile(filepath.Join(e.dir, "ok.html"), []byte(`custom {{.Title}}`), 0o600)
+		page := func(v url.Values) url.Values { v.Set("kind", "page"); return v }
+		for _, c := range []struct {
+			want string
+			v    url.Values
+		}{
+			{"template: give", page(url.Values{"name": {"p"}, "conf": {"tag = prod\ntemplate = up.conf\n"}, "new": {"1"}})},
+			{"template: give", page(url.Values{"name": {"p"}, "conf": {"tag = prod\ntemplate = ../x.html\n"}, "new": {"1"}})},
+			{"tag is required", page(url.Values{"name": {"p"}, "conf": {"title = x\n"}, "new": {"1"}})},
+			{"unknown key", page(url.Values{"name": {"p"}, "conf": {"tag = prod\ntype = http\n"}, "new": {"1"}})},
+			{"unknown kind", url.Values{"name": {"p"}, "conf": {"tag = prod\n"}, "new": {"1"}, "kind": {"notifier"}}},
+		} {
+			if code, b := form(c.v); code != 400 || !strings.Contains(b, c.want) {
+				t.Fatalf("page %s: %d %s", c.want, code, b)
+			}
+		}
+		if c, _ := form(page(url.Values{"name": {"ops"}, "conf": {"title = Ops\ntag = db\ntemplate = ok.html\n"}, "new": {"1"}})); c != 303 || e.get("/status/ops") != "custom Ops" {
+			t.Fatalf("page create: %d", c)
+		}
+		if b := e.get("/"); !strings.Contains(b, `href="/edit/page/ops"`) {
+			t.Fatal("no page edit link")
+		}
+		if _, b := e.do("GET", "/", "", "", "Remote-User", "eve", "Remote-Groups", "up-editor,team-a"); strings.Contains(b, "/edit/page/ops") {
+			t.Fatal("editor sees edit link of a page outside their tags")
+		}
+		if c, _ := as("up-editor,team-a", page(url.Values{"name": {"ops"}, "conf": {"tag = prod\n"}})); c != 400 {
+			t.Fatalf("editor edits page outside tags: %d", c)
+		}
+		if c, b := as("up-editor,team-a", page(url.Values{"name": {"team"}, "conf": {"tag = db\n"}, "new": {"1"}})); c != 400 || !strings.Contains(b, "is not allowed, use prod") {
+			t.Fatalf("editor page with foreign tag: %d %s", c, b)
+		}
+		if c, _ := as("up-editor,team-a", page(url.Values{"name": {"team"}, "conf": {"title = Team A\ntag = prod\n"}, "new": {"1"}})); c != 303 || !strings.Contains(e.get("/status/team"), "Team A") {
+			t.Fatalf("editor page create: %d", c)
+		}
+		if c, _ := as("up-editor,team-a", page(url.Values{"name": {"team"}, "delete": {"1"}})); c != 303 {
+			t.Fatalf("editor page delete: %d", c)
+		}
+		if resp, _ := e.do("GET", "/status/team", "", ""); resp.StatusCode != 404 {
+			t.Fatalf("deleted page still there: %d", resp.StatusCode)
+		}
+	})
 }

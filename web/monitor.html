@@ -1,7 +1,7 @@
 {{define "main"}}<main data-red="{{.Red}}" data-state="{{.Overall}}"{{if and .M .M.Checking}} class="checking"{{end}}>
 {{with .M}}
 <div class="head"><h1>{{template "state" .}} {{template "type" .Type}} {{.Name}}</h1>
-{{if $.Edit}}<div class="buttons">{{template "check" .}} {{template "pause" .}}</div>{{end}}</div>
+{{if $.Edit}}<div class="buttons">{{template "check" .}} {{template "pause" .}} <a href="/edit/monitor/{{.Name}}" class="btn edit" title="edit (e)"><span class="ico" aria-hidden="true">✎</span> edit <kbd>e</kbd></a></div>{{end}}</div>
 <p class="sub">{{with .Description}}{{linkify .}}<br>{{end}}{{template "tags" ($.TagLinks .Tags)}}{{with $.PagesFor .Tags}} <span class="muted">on {{template "pages" .}}</span>{{end}}</p>
 <p class="banner {{.State}}">{{with .Reason}}{{linkify .}} {{end}}<span class="muted">since {{template "rel" .Since}}<br>
 checked {{template "times" .}}{{with .LastCheck}} in {{.Duration}}{{end}}{{with .Uptime}} · <span title="green vs. red time since {{template "ts" .Since}}; retries and unknown time don't count">uptime <b>{{.Pct}}</b>, <b>{{.Down}}</b> down</span>{{end}}</span></p>

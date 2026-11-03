@@ -6,6 +6,7 @@
 {{end}}</tbody>
 </table>
 <p class="muted empty">no monitors match</p>
+{{with .EditPages}}<p class="muted">status pages: {{range $i, $p := .}}{{if $i}} · {{end}}<a href="/status/{{$p.Slug}}">{{$p.Title}}</a> <a href="/edit/page/{{$p.Slug}}" title="edit status page {{$p.Slug}}" aria-label="edit status page {{$p.Slug}}">✎</a>{{end}}</p>{{end}}
 </main>{{end}}
 
 {{define "chips"}}<nav class="chips" aria-label="filter by state">

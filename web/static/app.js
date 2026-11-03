@@ -312,7 +312,23 @@ function backToList() {
   else location.assign('/');
 }
 
+document.addEventListener('change', e => {
+  const select = e.target;
+  if (select.id !== 'conf-type') return;
+  const conf = select.form.conf;
+  const untouched = [...select.options].some(o => o.dataset.conf === conf.value);
+  if (untouched || confirm(`Replace your changes with the ${select.value} template?`)) conf.value = select.selectedOptions[0].dataset.conf;
+  else select.value = conf.dataset.type ?? select.options[0].value;
+  conf.dataset.type = select.value;
+  select.form.kind.value = select.selectedOptions[0].dataset.kind;
+});
+
 document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.form?.classList.contains('edit')) {
+    e.preventDefault();
+    e.target.form.requestSubmit();
+    return;
+  }
   if (dialog.open || e.ctrlKey || e.metaKey || e.altKey) return;
 
   if (e.target.matches('input, select, textarea')) {
@@ -331,7 +347,9 @@ document.addEventListener('keydown', e => {
     Enter: () => { if (all[selected]) location.href = all[selected].dataset.href; },
     c: () => scope?.querySelector('form.check')?.requestSubmit(),
     p: () => scope?.querySelector('form.pause, form.resume')?.requestSubmit(),
-    Escape: backToList,
+    n: () => $('#new')?.click(),
+    e: () => $('a.edit')?.click(),
+    Escape: () => $('a.cancel') ? $('a.cancel').click() : backToList(),
   };
   const action = shortcuts[e.key];
   if (!action) return;

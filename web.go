@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"cmp"
+	"crypto/rand"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -14,7 +16,8 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
-	"path"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -30,6 +33,7 @@ var (
 	pages       = map[string]*template.Template{
 		"list":    template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/layout.html", "web/list.html", "web/footer.html")),
 		"monitor": template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/layout.html", "web/monitor.html", "web/footer.html")),
+		"edit":    template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/layout.html", "web/edit.html", "web/footer.html")),
 	}
 	statusTmpl = template.Must(template.New("status.html").Funcs(funcs).ParseFS(webFS, "web/status.html", "web/footer.html"))
 )
@@ -38,13 +42,16 @@ func (a *App) handler() http.Handler {
 	mux := http.NewServeMux()
 	auth := func(h http.HandlerFunc) http.Handler { return a.auth(h) }
 	mux.Handle("GET /{$}", auth(a.ui))
-	mux.Handle("GET /monitor/{name...}", auth(a.ui))
+	mux.Handle("GET /monitor/{name}", auth(a.ui))
+	mux.Handle("GET /new", auth(a.editForm))
+	mux.Handle("GET /edit/{kind}/{name}", auth(a.editForm))
+	mux.Handle("POST /edit", auth(a.editSave))
 	mux.Handle("GET /events", auth(a.events))
 	mux.Handle("GET /api/me", auth(a.apiMe))
 	mux.Handle("GET /api/monitors", auth(a.apiList))
-	mux.Handle("GET /api/monitors/{name...}", auth(a.apiMonitor))
-	mux.Handle("POST /api/monitors/{path...}", auth(a.apiAction))
-	mux.HandleFunc("/push/{path...}", a.handlePush)
+	mux.Handle("GET /api/monitors/{name}", auth(a.apiMonitor))
+	mux.Handle("POST /api/monitors/{name}/{action}", auth(a.apiAction))
+	mux.HandleFunc("/push/{name}/{token}", a.handlePush)
 	mux.HandleFunc("/api/push/{token}", a.handleKumaPush)
 	mux.HandleFunc("/ping/{token}", a.handleHealthchecksPing)
 	mux.HandleFunc("/ping/{token}/{signal}", a.handleHealthchecksPing)
@@ -140,7 +147,7 @@ func (a *App) apiMonitor(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
-	name, action := splitLast(r.PathValue("path"))
+	name, action := r.PathValue("name"), r.PathValue("action")
 	m := a.visible(userOf(r), name)
 	if m == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
@@ -216,11 +223,6 @@ func pauseEnd(d, t string) (time.Time, error) {
 	return time.Time{}, nil
 }
 
-func splitLast(p string) (string, string) {
-	dir, last := path.Split(p)
-	return strings.TrimSuffix(dir, "/"), last
-}
-
 type page struct {
 	Red         int
 	Q, State    string
@@ -235,7 +237,14 @@ type page struct {
 	Total       int
 	States      []stateChip
 	Failing     []failure
-	Edit        bool // may check, pause and resume
+	Edit        bool   // may check, pause and resume
+	EditKind    string // monitor or page
+	EditName    string
+	EditPages   []*StatusPageConfig // status pages the user may edit
+	EditNew     bool
+	Conf, Err   string
+	Templates   []confTemplate
+	AllowedTags []string // nil is any tag
 	User        *User
 	AccountURL  string
 	LogoutURL   string
@@ -300,6 +309,8 @@ type rowData struct {
 }
 
 func (p page) Row(v monitorView) rowData { return rowData{v, p} }
+
+func (page) KindNames() map[string]string { return kindNames }
 
 func (p page) Config() []kv { return configRows(p.Cfg) }
 
@@ -465,6 +476,11 @@ func (a *App) page(u *User, q url.Values, vs []monitorView) page {
 		}
 	}
 	p.Tags = slices.Sorted(maps.Keys(tags))
+	for _, sp := range cfg.StatusPages {
+		if u.Role >= editor && a.mayEdit(u, "page", sp.Slug) {
+			p.EditPages = append(p.EditPages, sp)
+		}
+	}
 	a.mu.Lock()
 	for _, n := range slices.Sorted(maps.Keys(a.failing)) {
 		if u.Role >= admin && a.cfg.Load().Notifiers[n] != nil {
@@ -512,6 +528,193 @@ func (a *App) uiPage(u *User, path string, q url.Values) (name string, p page) {
 	slices.Reverse(rows)
 	p.Log = rows[:min(len(rows), 200)]
 	return "monitor", p
+}
+
+type confTemplate struct{ Kind, Type, Conf string }
+
+var kindNames = map[string]string{"monitor": "monitor", "page": "status page"}
+
+// confTemplates starts a new file per monitor type and a status page; below admin, tags start as the user's own, since one is required.
+func confTemplates(u *User) []confTemplate {
+	tags, tag := "# tags = prod, public", "public"
+	if allowed := userTags(u); allowed != nil {
+		tags, tag = "tags = "+strings.Join(allowed, ", "), allowed[0]
+	}
+	common := "# description = what this checks\n" + tags + "\n# notifiers = ops-chat\n# retry_count = 2\n"
+	return []confTemplate{
+		{"monitor", "http", "type = http\ninterval = 1m\nurl = https://example.com/\n" + common + "# status = 200-299\n# body = regex the body must match\n# cert_min_valid_days = 7\n"},
+		{"monitor", "metric", "type = metric\ninterval = 1m\nurl = https://prometheus.example.com/metrics\nmetric = prometheus_ready\nvalue = >= 1\n" + common},
+		{"monitor", "promql", "type = promql\ninterval = 5m\nurl = https://prometheus.example.com\nquery = 100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))\nvalue = < 80\n" + common},
+		{"monitor", "push", "type = push\ninterval = 24h\ngrace = 1h\ntoken = " + rand.Text() + "\n" + common},
+		{"page", "status page", "title = Example Status\ntag = " + tag + "\n# template = minimal.html (a .html file next to up.conf)\n"},
+	}
+}
+
+func (a *App) editPage(u *User, kind, name string, create bool) page {
+	p := a.page(u, nil, a.views(u, nil, "", "", "", false))
+	p.EditKind, p.EditName, p.EditNew, p.Templates, p.AllowedTags = kind, name, create, confTemplates(u), a.allowedTags(u, kind, name)
+	return p
+}
+
+func (a *App) editForm(w http.ResponseWriter, r *http.Request) {
+	if !need(w, r, editor) {
+		return
+	}
+	u, kind, name := userOf(r), cmp.Or(r.PathValue("kind"), "monitor"), r.PathValue("name")
+	p := a.editPage(u, kind, name, name == "")
+	p.Conf = p.Templates[0].Conf
+	if !p.EditNew {
+		if kindNames[kind] == "" || !slugRe.MatchString(name) || !a.mayEdit(u, kind, name) { // before any file access: path values are unescaped, %2F included
+			http.NotFound(w, r)
+			return
+		}
+		b, err := os.ReadFile(a.confFile(kind, name))
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		p.Conf = string(b)
+	}
+	render(w, "edit", p)
+}
+
+func (a *App) editSave(w http.ResponseWriter, r *http.Request) {
+	if !need(w, r, editor) {
+		return
+	}
+	u, kind, name, conf := userOf(r), cmp.Or(r.FormValue("kind"), "monitor"), r.FormValue("name"), strings.ReplaceAll(r.FormValue("conf"), "\r\n", "\n")
+	create, del := r.FormValue("new") != "", r.FormValue("delete") != ""
+	if err := a.saveConf(u, kind, name, conf, create, del); err != nil {
+		p := a.editPage(u, kind, name, create)
+		p.Conf, p.Err = conf, err.Error()
+		w.WriteHeader(http.StatusBadRequest)
+		render(w, "edit", p)
+		return
+	}
+	a.reload(a.ctx)
+	back := map[string]string{"monitor": "/monitor/", "page": "/status/"}[kind] + name
+	if del {
+		back = "/"
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+func (a *App) confFile(kind, name string) string {
+	return filepath.Join(a.path, name+"."+kind+".conf")
+}
+
+// userTags: the tags u is limited to; nil is any tag.
+func userTags(u *User) []string {
+	if u.Role >= admin || slices.Contains(u.Tags, "*") {
+		return nil
+	}
+	return u.Tags
+}
+
+// loadedTags: the tags of the loaded monitor or status page; ok is false when it isn't loaded, e.g. a broken file.
+func (a *App) loadedTags(kind, name string) (tags []string, ok bool) {
+	if kind == "page" {
+		for _, p := range a.cfg.Load().StatusPages {
+			if p.Slug == name {
+				return []string{p.Tag}, true
+			}
+		}
+		return nil, false
+	}
+	if m := a.monitor(name); m != nil {
+		return m.config().Tags, true
+	}
+	return nil, false
+}
+
+// allowedTags: the tags u may save on name, their own plus the ones it already has; nil is any tag.
+func (a *App) allowedTags(u *User, kind, name string) []string {
+	own := userTags(u)
+	if own == nil {
+		return nil
+	}
+	old, _ := a.loadedTags(kind, name)
+	tags := slices.Concat(own, old)
+	slices.Sort(tags)
+	return slices.Compact(tags)
+}
+
+// mayEdit: admins edit every file, editors what shares a tag with them; a file that failed to load has no tags, so only admins.
+func (a *App) mayEdit(u *User, kind, name string) bool {
+	tags, ok := a.loadedTags(kind, name)
+	return u.Role >= admin || u.Role >= editor && ok && u.sees(&MonitorConfig{Tags: tags})
+}
+
+// saveConf validates conf like a reload would, then replaces the file atomically; a monitor's audit log stays on delete.
+// Below admin, the saved tags must be the user's own or ones the file already had, so nothing moves out of their reach or onto other teams' lists and status pages.
+func (a *App) saveConf(u *User, kind, name, conf string, create, del bool) error {
+	label := kindNames[kind]
+	if label == "" {
+		return fmt.Errorf("unknown kind %q", kind)
+	}
+	if !slugRe.MatchString(name) {
+		return fmt.Errorf("name %q must match [a-z0-9][a-z0-9.-]*", name)
+	}
+	path := a.confFile(kind, name)
+	_, err := os.Stat(path)
+	exists := err == nil
+	switch {
+	case create && exists:
+		return fmt.Errorf("%s %s already exists", label, name)
+	case exists && !a.mayEdit(u, kind, name):
+		return fmt.Errorf("%s %s: not found", label, name)
+	case del:
+		return os.Remove(path)
+	}
+	tmp := path + ".tmp" // no .conf suffix: invisible to reloads
+	if err := os.WriteFile(tmp, []byte(conf), 0o600); err != nil {
+		return err
+	}
+	defer os.Remove(tmp)
+	clean := func(err error) error { return errors.New(strings.ReplaceAll(err.Error(), tmp, filepath.Base(path))) }
+	var tags []string
+	cfg := a.cfg.Load()
+	if kind == "page" {
+		p := &StatusPageConfig{Slug: name}
+		if err := decodeConf(tmp, p, nil); err != nil {
+			return clean(err)
+		}
+		// the template is rendered publicly: a path could publish any file, up.conf and its passwords included
+		if t := p.Template; t != "" && (filepath.Base(t) != t || filepath.Ext(t) != ".html") {
+			return errors.New("template: give the name of a .html file next to up.conf")
+		}
+		if err := p.validate(a.path); err != nil {
+			return fmt.Errorf("status page %s: %w", name, err)
+		}
+		tags = []string{p.Tag}
+	} else {
+		m, err := parseMonitor(tmp, name)
+		if err != nil {
+			return clean(err)
+		}
+		for _, n := range m.Notifiers {
+			if cfg.Notifiers[n] == nil {
+				return fmt.Errorf("unknown notifier %q", n)
+			}
+		}
+		for _, o := range cfg.Monitors {
+			if m.Push != nil && o.Push != nil && o.Name != name && o.Push.Token == m.Push.Token {
+				return errors.New("push.token is already used by another monitor")
+			}
+		}
+		tags = m.Tags
+	}
+	if allowed := a.allowedTags(u, kind, name); allowed != nil {
+		if len(tags) == 0 {
+			return fmt.Errorf("tags: give at least one of %s", strings.Join(allowed, ", "))
+		}
+		for _, t := range tags {
+			if !slices.Contains(allowed, t) {
+				return fmt.Errorf("tag %q is not allowed, use %s", t, strings.Join(allowed, ", "))
+			}
+		}
+	}
+	return os.Rename(tmp, path)
 }
 
 func (a *App) chips(vs []monitorView, tags []string, q string, total *int) []stateChip {

@@ -21,6 +21,7 @@
 <span class="searchbox"><span class="prompt" aria-hidden="true">›</span><input id="q" name="q" value="{{.Q}}" placeholder="search by name" aria-label="search by name" autocomplete="off"><button type="button" id="clear" aria-label="clear search" title="clear search (esc)" hidden>×</button><kbd class="hint" aria-hidden="true">/</kbd></span>
 {{with .State}}<input type="hidden" name="state" value="{{.}}">{{end}}{{range .Tag}}<input type="hidden" name="tag" value="{{.}}">{{end}}
 </form>
+{{if .Edit}}<a href="/new" id="new" class="round" title="new monitor (n)" aria-label="new monitor">+</a>{{end}}
 <button type="button" id="notify" class="round" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5h12l-1.5-2.2V10a4.5 4.5 0 0 0-9 0v4.3z"/><path d="M10.2 19a1.9 1.9 0 0 0 3.6 0"/><path class="slash" d="M4.5 4.5l15 15"/></svg></button>
 <button type="button" id="theme" class="round" hidden></button>
 {{if .User.SSO}}<span class="who">{{with .AccountURL}}<a href="{{.}}" title="account · {{$.User.Role}}">{{$.User.Name}}</a>{{else}}<span title="{{.User.Role}}">{{.User.Name}}</span>{{end}}{{with .LogoutURL}} <a href="{{.}}" title="log out" aria-label="log out">⏻</a>{{end}}</span>{{end}}

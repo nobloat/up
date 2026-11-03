@@ -71,7 +71,7 @@ type Monitor struct {
 }
 
 func monitorPath(dir, name string) string {
-	return filepath.Join(dir, strings.NewReplacer(".", "_", "/", "+").Replace(name)+".csv")
+	return filepath.Join(dir, strings.ReplaceAll(name, ".", "_")+".csv")
 }
 
 func newMonitor(a *App, cfg *MonitorConfig, why string, rows []row) *Monitor {

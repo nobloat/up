@@ -122,7 +122,7 @@ func readPayload(r *http.Request) (body []byte, tooLarge bool, err error) {
 }
 
 func (a *App) handlePush(w http.ResponseWriter, r *http.Request) {
-	name, token := splitLast(r.PathValue("path"))
+	name, token := r.PathValue("name"), r.PathValue("token")
 	m := a.monitor(name)
 	if m == nil {
 		http.NotFound(w, r)

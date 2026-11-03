@@ -25,11 +25,12 @@ header form { display: flex; gap: .4rem; align-items: center; flex: 1; min-width
 #clear:hover { color: var(--fg); }
 .foot { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-top: 5rem; padding-top: 1.75rem; border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
 .foot b { color: var(--fg); font-size: 1rem; }
-input, select, button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .3rem .8rem; }
+input, select, button, textarea, .btn { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .3rem .8rem; }
 button { cursor: pointer; }
+textarea { width: 100%; padding: .6rem .8rem; line-height: 1.6; }
 button:hover { border-color: var(--muted); }
 kbd { font-size: .8em; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 .3em; }
-button kbd { margin-left: .3em; color: var(--muted); }
+button kbd, .btn kbd { margin-left: .3em; color: var(--muted); }
 tr .actions kbd { display: none; } /* list: icon-only button */
 table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; }
 th, td { text-align: left; padding: .7rem .75rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
@@ -157,6 +158,9 @@ dialog[open]::backdrop { animation: fade .15s ease-out; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after, ::backdrop { animation: none !important; transition: none !important; } }
 #clear:active { transform: translateY(-50%); }
 .times { white-space: nowrap; }
+a.round, .btn { border: 1px solid var(--line); text-decoration: none; }
+.btn { display: inline-block; }
+.btn:hover { border-color: var(--muted); }
 .round { width: 2rem; height: 2rem; padding: 0; border-radius: 50%; font-size: 1.05rem; line-height: 1; display: inline-grid; place-items: center; }
 #notify svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #notify .slash { display: none; }

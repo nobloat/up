@@ -17,10 +17,10 @@ A minimal alternative to [Uptime Kuma](https://github.com/louislam/uptime-kuma):
 | [Push monitors](#push-monitors) | dead man switch for cron jobs and backups; [Uptime Kuma](https://github.com/louislam/uptime-kuma) and [healthchecks.io](https://healthchecks.io/docs/http_api/) compatible URLs |
 | [Notifications](#notifiers) | Slack / Mattermost webhooks, mail, [ilert](https://www.ilert.com); reminders while red |
 | [Status pages](#status-pages) | public, per tag, custom templates |
-| Web UI | live updates, filters, search, keyboard shortcuts, pause with reason and end, dark mode, phone friendly, installable on the home screen |
+| Web UI | live updates, filters, search, keyboard shortcuts, pause with reason and end, create, edit and delete monitors and status pages (editors within their tags; the config directory must be writable, not `:ro`), dark mode, phone friendly, installable on the home screen |
 | Heartbeat | pings an external URL so something notices when `up` itself is down |
 
-**Not included:** editing monitors in the UI (the files are the source of truth), graphs, user management (that is the IdP's job, see [single sign-on](#single-sign-on)).
+**Not included:** editing notifiers and `up.conf` in the UI, graphs, user management (that is the IdP's job, see [single sign-on](#single-sign-on)).
 
 ## Deployment
 
@@ -62,7 +62,7 @@ A directory (`-config`, `/config` in the image): `up.conf` plus one file per ent
 config/
   up.conf
   website.monitor.conf
-  prod/api.monitor.conf
+  api.monitor.conf
   ops-chat.notifier.conf
   public.page.conf
 ```
@@ -115,7 +115,7 @@ account_url     = https://auth.example.com/settings
 | Role | May |
 |---|---|
 | `viewer` | see the monitors of their tags, with config (secrets masked) and log |
-| `editor` | also check now, pause and resume them |
+| `editor` | also check now, pause and resume them; create, edit and delete their monitors and status pages (shows their secrets), keeping tags within their own and the existing ones |
 | `admin` | every monitor regardless of tags, notifier failure banners |
 
 A user needs a role group and, below admin, an `access.*` group: `up-editor` + `team-a` may pause the monitors tagged `prod` or `api`; other monitors answer 404. The highest role wins, tags add up. Status pages and push URLs stay public: route `/push/*`, `/api/push/*`, `/ping/*`, `/status/*`, `/static/*` and `Authorization: Basic` past the IdP (see [`Caddyfile`](../bill/example/local/Caddyfile)).

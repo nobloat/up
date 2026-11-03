@@ -95,6 +95,9 @@ type App struct {
 	monitors map[string]*Monitor
 	failing  map[string]failure
 
+	reloadMu sync.Mutex
+	lastFP   string
+
 	subMu sync.Mutex
 	subs  map[*sub]struct{}
 }
@@ -119,6 +122,7 @@ func run(ctx context.Context, path string, ln net.Listener, dial dialFunc) error
 		ln.Close()
 		return err
 	}
+	a.lastFP = a.fingerprint()
 
 	srv := &http.Server{Handler: a.handler(), ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: time.Minute}

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"log/slog"
 	"maps"
 	"net/netip"
@@ -24,7 +23,6 @@ import (
 const reloadInterval = 5 * time.Second
 
 var (
-	nameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*(/[a-z0-9][a-z0-9.-]*)*$`)
 	slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*$`)
 )
 
@@ -270,25 +268,26 @@ func decodeConf(path string, v any, fallback func() any) error {
 
 func entities(dir string, errs *[]error) (map[string]map[string]string, error) {
 	files := map[string]map[string]string{"monitor": {}, "notifier": {}, "page": {}}
-	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".conf") {
-			return err
+	des, err := os.ReadDir(dir)
+	for _, d := range des {
+		if d.IsDir() {
+			if nested, _ := filepath.Glob(filepath.Join(dir, d.Name(), "*.conf")); len(nested) > 0 {
+				*errs = append(*errs, fmt.Errorf("%s/: subdirectories are not read, move its .conf files up", d.Name()))
+			}
+			continue
 		}
-		rel, _ := filepath.Rel(dir, p)
-		rel = filepath.ToSlash(rel)
-		if rel == "up.conf" {
-			return nil
+		base, ok := strings.CutSuffix(d.Name(), ".conf")
+		if !ok || base == "up" {
+			continue
 		}
-		base := strings.TrimSuffix(rel, ".conf")
 		i := strings.LastIndex(base, ".")
 		name, kind := base[:max(i, 0)], base[i+1:]
 		if files[kind] == nil {
-			*errs = append(*errs, fmt.Errorf("%s: want <name>.monitor.conf, <name>.notifier.conf or <slug>.page.conf", rel))
-			return nil
+			*errs = append(*errs, fmt.Errorf("%s: want <name>.monitor.conf, <name>.notifier.conf or <slug>.page.conf", d.Name()))
+			continue
 		}
-		files[kind][name] = p
-		return nil
-	})
+		files[kind][name] = filepath.Join(dir, d.Name())
+	}
 	return files, err
 }
 
@@ -324,27 +323,9 @@ func loadConfig(dir string) (*Config, error) {
 	files := all["monitor"]
 	tokens := map[string]bool{}
 	for _, name := range slices.Sorted(maps.Keys(files)) {
-		m := &MonitorConfig{Name: name}
-		block := func() any {
-			if f, ok := field(reflect.ValueOf(m).Elem(), m.Type); ok && f.Kind() == reflect.Pointer && f.Type().Elem().Kind() == reflect.Struct {
-				if f.IsNil() {
-					f.Set(reflect.New(f.Type().Elem()))
-				}
-				return f.Interface()
-			}
-			return nil
-		}
-		if err := decodeConf(files[name], m, block); err != nil {
+		m, err := parseMonitor(files[name], name)
+		if err != nil {
 			skip(err)
-			continue
-		}
-		block()
-		if !nameRe.MatchString(name) {
-			skip(fmt.Errorf("monitor name %q: segments separated by / must match [a-z0-9][a-z0-9.-]*", name))
-			continue
-		}
-		if err := m.validate(); err != nil {
-			skip(fmt.Errorf("monitor %s: %w", name, err))
 			continue
 		}
 		if m.Push != nil {
@@ -376,6 +357,30 @@ func loadConfig(dir string) (*Config, error) {
 		c.StatusPages = append(c.StatusPages, p)
 	}
 	return &c, nil
+}
+
+func parseMonitor(path, name string) (*MonitorConfig, error) {
+	m := &MonitorConfig{Name: name}
+	block := func() any {
+		if f, ok := field(reflect.ValueOf(m).Elem(), m.Type); ok && f.Kind() == reflect.Pointer && f.Type().Elem().Kind() == reflect.Struct {
+			if f.IsNil() {
+				f.Set(reflect.New(f.Type().Elem()))
+			}
+			return f.Interface()
+		}
+		return nil
+	}
+	if err := decodeConf(path, m, block); err != nil {
+		return nil, err
+	}
+	block()
+	if !slugRe.MatchString(name) {
+		return nil, fmt.Errorf("monitor name %q must match [a-z0-9][a-z0-9.-]*", name)
+	}
+	if err := m.validate(); err != nil {
+		return nil, fmt.Errorf("monitor %s: %w", name, err)
+	}
+	return m, nil
 }
 
 func (c *Config) logErrs() {
@@ -508,41 +513,45 @@ func checkURL(s string) error {
 }
 
 func (a *App) reloadLoop(ctx context.Context) {
-	last := a.fingerprint()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(reloadInterval):
 		}
-		fp := a.fingerprint()
-		if fp == last {
-			continue
-		}
-		last = fp
-		cfg, err := loadConfig(a.path)
-		if err != nil {
-			slog.Error("config reload failed, keeping old config", "err", err)
-			continue
-		}
-		cfg.logErrs()
-		if err := a.apply(ctx, cfg); err != nil {
-			slog.Error("config reload failed, keeping old config", "err", err)
-			continue
-		}
-		slog.Info("config reloaded")
+		a.reload(ctx)
 	}
+}
+
+// reload applies the config directory when its files changed since the last reload.
+func (a *App) reload(ctx context.Context) {
+	a.reloadMu.Lock()
+	defer a.reloadMu.Unlock()
+	fp := a.fingerprint()
+	if fp == a.lastFP {
+		return
+	}
+	a.lastFP = fp
+	cfg, err := loadConfig(a.path)
+	if err != nil {
+		slog.Error("config reload failed, keeping old config", "err", err)
+		return
+	}
+	cfg.logErrs()
+	if err := a.apply(ctx, cfg); err != nil {
+		slog.Error("config reload failed, keeping old config", "err", err)
+		return
+	}
+	slog.Info("config reloaded")
 }
 
 func (a *App) fingerprint() string {
 	var b strings.Builder
-	filepath.WalkDir(a.path, func(p string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".conf") {
-			if fi, err := d.Info(); err == nil {
-				fmt.Fprintf(&b, "%s %d %d\n", p, fi.ModTime().UnixNano(), fi.Size())
-			}
+	des, _ := os.ReadDir(a.path)
+	for _, d := range des {
+		if fi, err := d.Info(); err == nil && !d.IsDir() && strings.HasSuffix(d.Name(), ".conf") {
+			fmt.Fprintf(&b, "%s %d %d\n", d.Name(), fi.ModTime().UnixNano(), fi.Size())
 		}
-		return nil
-	})
+	}
 	return b.String()
 }
