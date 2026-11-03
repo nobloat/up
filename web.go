@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -41,6 +40,7 @@ func (a *App) handler() http.Handler {
 	mux.Handle("GET /{$}", auth(a.ui))
 	mux.Handle("GET /monitor/{name...}", auth(a.ui))
 	mux.Handle("GET /events", auth(a.events))
+	mux.Handle("GET /api/me", auth(a.apiMe))
 	mux.Handle("GET /api/monitors", auth(a.apiList))
 	mux.Handle("GET /api/monitors/{name...}", auth(a.apiMonitor))
 	mux.Handle("POST /api/monitors/{path...}", auth(a.apiAction))
@@ -53,25 +53,21 @@ func (a *App) handler() http.Handler {
 	return http.NewCrossOriginProtection().Handler(mux)
 }
 
-func (a *App) auth(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c := a.cfg.Load().Auth
-		u, p, ok := r.BasicAuth()
-		if !ok || subtle.ConstantTimeCompare([]byte(u), []byte(c.User))&subtle.ConstantTimeCompare([]byte(p), []byte(c.Password)) != 1 {
-			w.Header().Set("WWW-Authenticate", `Basic realm="][• up", charset="UTF-8"`)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		h.ServeHTTP(w, r)
-	})
+// visible returns the monitor when u may see it, else nil.
+func (a *App) visible(u *User, name string) *Monitor {
+	if m := a.monitor(name); m != nil && u.sees(m.config()) {
+		return m
+	}
+	return nil
 }
 
-func (a *App) views(tags []string, state, q, name string, withUptime bool) []monitorView {
+// views lists the monitors u sees; a nil u is the public status page.
+func (a *App) views(u *User, tags []string, state, q, name string, withUptime bool) []monitorView {
 	cfg := a.cfg.Load()
 	var out []monitorView
 	for i, mc := range cfg.Monitors {
 		m := a.monitor(mc.Name)
-		if m == nil {
+		if m == nil || u != nil && !u.sees(mc) {
 			continue
 		}
 		v := m.view()
@@ -113,7 +109,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 }
 
 func (a *App) apiList(w http.ResponseWriter, r *http.Request) {
-	vs := a.views(r.URL.Query()["tag"], "", "", r.FormValue("name"), true)
+	vs := a.views(userOf(r), r.URL.Query()["tag"], "", "", r.FormValue("name"), true)
 	for i := range vs {
 		vs[i].LastCheck = nil
 	}
@@ -123,8 +119,17 @@ func (a *App) apiList(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, vs)
 }
 
+func (a *App) apiMe(w http.ResponseWriter, r *http.Request) {
+	u := userOf(r)
+	tags := u.Tags
+	if u.Role >= admin || slices.Contains(tags, "*") {
+		tags = []string{"*"}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": u.Name, "role": u.Role.String(), "tags": append([]string{}, tags...)})
+}
+
 func (a *App) apiMonitor(w http.ResponseWriter, r *http.Request) {
-	m := a.monitor(r.PathValue("name"))
+	m := a.visible(userOf(r), r.PathValue("name"))
 	if m == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		return
@@ -136,9 +141,12 @@ func (a *App) apiMonitor(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) apiAction(w http.ResponseWriter, r *http.Request) {
 	name, action := splitLast(r.PathValue("path"))
-	m := a.monitor(name)
+	m := a.visible(userOf(r), name)
 	if m == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+		return
+	}
+	if !need(w, r, editor) {
 		return
 	}
 	ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -227,6 +235,10 @@ type page struct {
 	Total       int
 	States      []stateChip
 	Failing     []failure
+	Edit        bool // may check, pause and resume
+	User        *User
+	AccountURL  string
+	LogoutURL   string
 }
 
 var urlRe = regexp.MustCompile(`https?://[^\s<>"']*[^\s<>"'.,:;!?)\]]`)
@@ -438,8 +450,10 @@ func (p page) Link(key, val string) string {
 	return "/?" + v.Encode()
 }
 
-func (a *App) page(q url.Values, vs []monitorView) page {
-	p := page{Q: q.Get("q"), State: q.Get("state"), Tag: q["tag"], StatusPages: a.cfg.Load().StatusPages}
+func (a *App) page(u *User, q url.Values, vs []monitorView) page {
+	cfg := a.cfg.Load()
+	p := page{Q: q.Get("q"), State: q.Get("state"), Tag: q["tag"], StatusPages: cfg.StatusPages, Edit: u.Role >= editor,
+		User: u, AccountURL: cfg.AccountURL, LogoutURL: cfg.LogoutURL}
 	tags := map[string]bool{}
 	p.Overall = worst(vs)
 	for _, v := range vs {
@@ -453,7 +467,7 @@ func (a *App) page(q url.Values, vs []monitorView) page {
 	p.Tags = slices.Sorted(maps.Keys(tags))
 	a.mu.Lock()
 	for _, n := range slices.Sorted(maps.Keys(a.failing)) {
-		if a.cfg.Load().Notifiers[n] != nil {
+		if u.Role >= admin && a.cfg.Load().Notifiers[n] != nil {
 			p.Failing = append(p.Failing, a.failing[n])
 		}
 	}
@@ -469,7 +483,7 @@ func render(w http.ResponseWriter, name string, p page) {
 }
 
 func (a *App) ui(w http.ResponseWriter, r *http.Request) {
-	name, p := a.uiPage(r.URL.Path, r.URL.Query())
+	name, p := a.uiPage(userOf(r), r.URL.Path, r.URL.Query())
 	if name == "" {
 		http.NotFound(w, r)
 		return
@@ -477,16 +491,16 @@ func (a *App) ui(w http.ResponseWriter, r *http.Request) {
 	render(w, name, p)
 }
 
-func (a *App) uiPage(path string, q url.Values) (name string, p page) {
-	vs := a.views(nil, "", "", "", false)
-	p = a.page(q, vs)
+func (a *App) uiPage(u *User, path string, q url.Values) (name string, p page) {
+	vs := a.views(u, nil, "", "", "", false)
+	p = a.page(u, q, vs)
 	if path == "/" {
 		p.States = a.chips(vs, p.Tag, p.Q, &p.Total)
 		p.Monitors = filterViews(vs, p.Tag, p.State, p.Q)
 		return "list", p
 	}
 	mn, ok := strings.CutPrefix(path, "/monitor/")
-	m := a.monitor(mn)
+	m := a.visible(u, mn)
 	if !ok || m == nil {
 		return "", p
 	}
@@ -513,14 +527,17 @@ func (a *App) chips(vs []monitorView, tags []string, q string, total *int) []sta
 }
 
 func (a *App) events(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
+	q, u := r.URL.Query(), userOf(r)
 	path, tags, search := q.Get("path"), q["tag"], q.Get("q")
 	detail, isDetail := strings.CutPrefix(path, "/monitor/")
 	shows := func(name string) bool {
+		m := a.visible(u, name)
+		if m == nil && u.Role < admin { // a removed monitor's events only reach admins
+			return false
+		}
 		if path == "" || isDetail {
 			return path == "" || name == detail
 		}
-		m := a.monitor(name)
 		return m != nil && matches(m.view(), tags, "", search)
 	}
 	rc := http.NewResponseController(w)
@@ -547,7 +564,7 @@ func (a *App) events(w http.ResponseWriter, r *http.Request) {
 	}
 	shown := map[string]bool{}
 	if path != "" {
-		if name, p := a.uiPage(path, q); name != "" {
+		if name, p := a.uiPage(u, path, q); name != "" {
 			send("main", tmpl(name, "main", p))
 			for _, v := range p.Monitors {
 				shown[v.Name] = true
@@ -575,12 +592,12 @@ func (a *App) events(w http.ResponseWriter, r *http.Request) {
 			}
 			switch {
 			case isDetail && dirty[detail]:
-				if name, p := a.uiPage(path, q); name != "" {
+				if name, p := a.uiPage(u, path, q); name != "" {
 					send("main", tmpl(name, "main", p))
 				}
 			case path == "/":
-				vs := a.views(nil, "", "", "", false)
-				p, changed := a.page(q, vs), false
+				vs := a.views(u, nil, "", "", "", false)
+				p, changed := a.page(u, q, vs), false
 				for _, v := range filterViews(vs, tags, "", search) {
 					if on := matches(v, nil, p.State, ""); dirty[v.Name] && (on || shown[v.Name]) {
 						html := ""
@@ -630,7 +647,7 @@ func (a *App) statusPage(w http.ResponseWriter, r *http.Request) {
 	}
 	sp := cfg.StatusPages[i]
 	data := StatusPage{Title: sp.Title}
-	vs := a.views([]string{sp.Tag}, "", "", "", false)
+	vs := a.views(nil, []string{sp.Tag}, "", "", "", false)
 	data.State = worst(vs)
 	for _, v := range vs {
 		data.Monitors = append(data.Monitors, StatusMonitor{v.Name, v.Description, v.State, v.Paused, v.PauseReason})

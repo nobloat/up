@@ -23,6 +23,7 @@
 </form>
 <button type="button" id="notify" class="round" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5h12l-1.5-2.2V10a4.5 4.5 0 0 0-9 0v4.3z"/><path d="M10.2 19a1.9 1.9 0 0 0 3.6 0"/><path class="slash" d="M4.5 4.5l15 15"/></svg></button>
 <button type="button" id="theme" class="round" hidden></button>
+{{if .User.SSO}}<span class="who">{{with .AccountURL}}<a href="{{.}}" title="account · {{$.User.Role}}">{{$.User.Name}}</a>{{else}}<span title="{{.User.Role}}">{{.User.Name}}</span>{{end}}{{with .LogoutURL}} <a href="{{.}}" title="log out" aria-label="log out">⏻</a>{{end}}</span>{{end}}
 </header>
 {{range .Failing}}<p class="banner red" role="alert">notifier <b>{{.Notifier}}</b> failing since {{template "when" .Since}}: {{.Err}}</p>
 {{end}}{{template "main" .}}

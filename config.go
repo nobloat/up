@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"maps"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -32,6 +33,11 @@ type Config struct {
 	BaseURL            string                     `json:"base_url"`
 	DataDir            string                     `json:"data_dir"`
 	Auth               Credentials                `json:"auth"`
+	TrustedProxies     []netip.Prefix             `json:"trusted_proxies"`
+	Roles              map[string][]string        `json:"role"`   // role.viewer = IdP groups
+	Access             map[string][]string        `json:"access"` // access.<IdP group> = tags, * for all
+	LogoutURL          string                     `json:"logout_url"`
+	AccountURL         string                     `json:"account_url"`
 	Proxy              string                     `json:"proxy"`
 	EvaluationInterval Duration                   `json:"evaluation_interval"`
 	Heartbeat          *Heartbeat                 `json:"heartbeat"`
@@ -385,8 +391,19 @@ func (c *Config) validate() error {
 	if c.DataDir == "" {
 		return errors.New("data_dir is required")
 	}
-	if c.Auth.User == "" || c.Auth.Password == "" {
-		return errors.New("auth.user and auth.password are required")
+	if (c.Auth.User == "") != (c.Auth.Password == "") {
+		return errors.New("auth.user and auth.password go together")
+	}
+	if c.Auth.User == "" && len(c.Roles) == 0 {
+		return errors.New("auth.user and auth.password, or role.* for single sign-on, are required")
+	}
+	for name := range c.Roles {
+		if roleNames[name] == none {
+			return fmt.Errorf("role.%s: want viewer, editor or admin", name)
+		}
+	}
+	if len(c.Roles) > 0 && len(c.TrustedProxies) == 0 {
+		return errors.New("role.* needs trusted_proxies")
 	}
 	if c.Proxy != "" {
 		u, err := url.Parse(c.Proxy)

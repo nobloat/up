@@ -80,6 +80,10 @@ dialog::backdrop { background: rgb(0 0 0 / .4); }
 #pause-end { grid-column: 1 / -1; min-height: 1.5em; }
 .ends input[type=radio] { margin: 0; padding: 0; accent-color: var(--accent); }
 code { white-space: pre-wrap; overflow-wrap: anywhere; } /* breaks only words that would not fit */
+.who { color: var(--muted); font-size: .9rem; white-space: nowrap; }
+.who a { color: inherit; text-decoration: none; }
+.who a:hover { color: var(--fg); }
+@media (max-width: 30rem) { .who > :first-child:not(:last-child) { display: none; } } /* phones keep only logout */
 .logo { display: inline-flex; align-items: center; gap: .4em; text-decoration: none; }
 .mark { height: 2.3rem; aspect-ratio: 33.5 / 24; flex: none; } /* ][• glyph, the dot shows the overall state */
 h1 .mark { height: 1em; }

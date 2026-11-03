@@ -21,6 +21,8 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/netip"
 	"net/textproto"
 	"os"
 	"path/filepath"
@@ -55,6 +57,11 @@ type pipeListener struct {
 
 type pipeAddr string
 
+// proxyConn is a server side pipe that looks like it comes from a proxy at 10.0.0.1.
+type proxyConn struct{ net.Conn }
+
+func (proxyConn) RemoteAddr() net.Addr { return pipeAddr("10.0.0.1:1234") }
+
 func (a pipeAddr) Network() string { return "pipe" }
 func (a pipeAddr) String() string  { return string(a) }
 
@@ -87,7 +94,7 @@ func (n *pipeNet) dial(ctx context.Context, _, addr string) (net.Conn, error) {
 	}
 	c1, c2 := net.Pipe()
 	select {
-	case l.ch <- c2:
+	case l.ch <- proxyConn{c2}:
 		return c1, nil
 	case <-l.done:
 		return nil, refused
@@ -1927,5 +1934,76 @@ func TestWorst(t *testing.T) {
 	}
 	if got := worst(nil); got != green {
 		t.Errorf("no monitors: %s", got)
+	}
+}
+
+func TestSSO(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		e.serve("target:80", func(w http.ResponseWriter, r *http.Request) {}, nil)
+		e.start(e.cfg(`"trusted_proxies": ["10.0.0.0/8"], "logout_url": "https://auth.example/logout", "account_url": "https://auth.example/settings", "role": {"viewer": ["up-viewer"], "editor": ["up-editor"], "admin": ["up-admin"]},
+			"access": {"team-a": ["prod"], "ops": ["*"]}, "monitors": [
+			{"name": "web", "type": "http", "interval": "1m", "tags": ["prod"], "http": {"url": "http://target/"}},
+			{"name": "db", "type": "http", "interval": "1m", "tags": ["db"], "http": {"url": "http://target/"}}]`))
+		sleep(time.Minute)
+		as := func(method, path, groups string) (int, string) {
+			resp, b := e.do(method, path, "", "", "Remote-User", "alice", "Remote-Groups", groups)
+			return resp.StatusCode, b
+		}
+		if c, b := as("GET", "/api/me", "up-viewer, team-a"); c != 200 || b != `{"role":"viewer","tags":["prod"],"user":"alice"}`+"\n" {
+			t.Fatalf("me: %d %s", c, b)
+		}
+		if c, b := as("GET", "/api/me", "up-admin"); c != 200 || !strings.Contains(b, `"tags":["*"]`) {
+			t.Fatalf("admin me: %d %s", c, b)
+		}
+		if c, b := as("GET", "/api/monitors", "up-viewer, team-a"); c != 200 || !strings.Contains(b, `"web"`) || strings.Contains(b, `"db"`) {
+			t.Fatalf("viewer list: %d %s", c, b)
+		}
+		if c, b := as("GET", "/", "up-viewer,team-a"); c != 200 || !strings.Contains(b, "/monitor/web") || strings.Contains(b, "/monitor/db") || strings.Contains(b, "/check") ||
+			!strings.Contains(b, `<a href="https://auth.example/settings" title="account · viewer">alice</a>`) || !strings.Contains(b, `href="https://auth.example/logout"`) {
+			t.Fatalf("viewer page: %d %s", c, b)
+		}
+		for path, want := range map[string]int{"/api/monitors/db": 404, "/monitor/db": 404, "/api/monitors/web": 200} {
+			if c, _ := as("GET", path, "up-viewer,team-a"); c != want {
+				t.Fatalf("viewer %s: %d, want %d", path, c, want)
+			}
+		}
+		if c, _ := as("POST", "/api/monitors/web/pause", "up-viewer,team-a"); c != 403 {
+			t.Fatalf("viewer pause: %d", c)
+		}
+		if c, _ := as("POST", "/api/monitors/db/pause", "up-editor,team-a"); c != 404 {
+			t.Fatalf("editor pause outside tags: %d", c)
+		}
+		if c, b := as("POST", "/api/monitors/web/pause", "up-editor,team-a"); c != 200 || !strings.Contains(b, `"paused":true`) {
+			t.Fatalf("editor pause: %d %s", c, b)
+		}
+		if c, b := as("GET", "/api/monitors", "up-viewer,ops"); c != 200 || !strings.Contains(b, `"db"`) {
+			t.Fatalf("viewer *: %d %s", c, b)
+		}
+		if c, b := as("GET", "/api/monitors", "up-admin"); c != 200 || !strings.Contains(b, `"db"`) {
+			t.Fatalf("admin: %d %s", c, b)
+		}
+		if c, _ := as("GET", "/", "team-a"); c != 403 {
+			t.Fatalf("no role: %d", c)
+		}
+		if b := e.get("/"); !strings.Contains(b, "/api/monitors/db/check") || strings.Contains(b, `class="who"`) { // basic auth stays admin, without SSO header
+			t.Fatalf("basic auth: %s", b)
+		}
+	})
+}
+
+func TestUntrustedProxy(t *testing.T) {
+	a := &App{}
+	a.cfg.Store(&Config{TrustedProxies: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, Roles: map[string][]string{"admin": {"g"}}})
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Remote-User", "mallory")
+	r.Header.Set("Remote-Groups", "g")
+	r.RemoteAddr = "192.0.2.1:1"
+	if a.resolve(r) != nil {
+		t.Fatal("headers from an untrusted address")
+	}
+	r.RemoteAddr = "10.1.2.3:1"
+	if u := a.resolve(r); u == nil || u.Role != admin {
+		t.Fatal("trusted proxy")
 	}
 }

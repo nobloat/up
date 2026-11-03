@@ -20,7 +20,7 @@ A minimal alternative to [Uptime Kuma](https://github.com/louislam/uptime-kuma):
 | Web UI | live updates, filters, search, keyboard shortcuts, pause with reason and end, dark mode, phone friendly, installable on the home screen |
 | Heartbeat | pings an external URL so something notices when `up` itself is down |
 
-**Not included:** editing monitors in the UI (the files are the source of truth), graphs, users and roles.
+**Not included:** editing monitors in the UI (the files are the source of truth), graphs, user management (that is the IdP's job, see [single sign-on](#single-sign-on)).
 
 ## Deployment
 
@@ -87,11 +87,40 @@ heartbeat.urls = https://hc-ping.com/<uuid>
 |---|---|---|
 | `base_url` | required | public URL, for links in notifications |
 | `data_dir` | required | audit logs |
-| `auth.user`, `auth.password` | required | basic auth for the UI and API |
+| `auth.user`, `auth.password` | required without `role.*` | basic auth for the UI and API, always admin |
+| `trusted_proxies` | | CIDRs whose `Remote-User` / `Remote-Groups` headers are believed, see [single sign-on](#single-sign-on) |
+| `role.viewer`, `role.editor`, `role.admin` | | IdP groups per role |
+| `access.<group>` | | tags whose monitors the group sees, `*` for all |
+| `logout_url`, `account_url` | | IdP links next to the signed-in user's name |
 | `listen` | `:7493` | plain HTTP, put a TLS proxy in front |
 | `proxy` | | HTTP proxy for all checks and notifications |
 | `evaluation_interval` | `30s` | how often notifications are evaluated and batched |
 | `heartbeat.urls`, `heartbeat.interval` | `1m` | URLs to GET while `up` runs |
+
+### Single sign-on
+
+Optional: with only `auth.user` / `auth.password` everyone shares one admin login, as before. Single sign-on works the same as in [bill](../bill/ACCESS.md) and [track](../track): a proxy (Caddy `forward_auth` with Authelia, Authentik, oauth2-proxy, …) logs the user in and forwards `Remote-User` and `Remote-Groups`. `up` believes those headers only from `trusted_proxies`; anyone else needs basic auth.
+
+```ini
+trusted_proxies = 10.0.0.0/8
+role.viewer     = up-viewer
+role.editor     = up-editor
+role.admin      = up-admin
+access.up-all   = *
+access.team-a   = prod, api
+logout_url      = https://auth.example.com/logout
+account_url     = https://auth.example.com/settings
+```
+
+| Role | May |
+|---|---|
+| `viewer` | see the monitors of their tags, with config (secrets masked) and log |
+| `editor` | also check now, pause and resume them |
+| `admin` | every monitor regardless of tags, notifier failure banners |
+
+A user needs a role group and, below admin, an `access.*` group: `up-editor` + `team-a` may pause the monitors tagged `prod` or `api`; other monitors answer 404. The highest role wins, tags add up. Status pages and push URLs stay public: route `/push/*`, `/api/push/*`, `/ping/*`, `/status/*`, `/static/*` and `Authorization: Basic` past the IdP (see [`Caddyfile`](../bill/example/local/Caddyfile)).
+
+`GET /api/me` answers `{user, role, tags}` for the signed-in user (`tags` is `["*"]` for every monitor), like bill's and track's.
 
 ### Monitors
 
