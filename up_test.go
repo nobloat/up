@@ -2161,3 +2161,37 @@ func TestEditMonitor(t *testing.T) {
 		}
 	})
 }
+
+// an editor whose groups map to no access tags is restricted to nothing, not to everything
+func TestNoTagsEditor(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		e.start(e.cfg(`"trusted_proxies":["10.0.0.0/8"],"role":{"editor":["up-editor"]},"monitors":[{"name":"private","tags":["secret"],"type":"push","interval":"1h","push":{"token":"private-0123456789abcdef"}}]`))
+		for _, conf := range []string{"title = Leak\ntag = secret\n", "title = Leak\n"} {
+			v := url.Values{"kind": {"page"}, "name": {"leak"}, "new": {"1"}, "conf": {conf}}
+			if resp, b := e.do("POST", "/edit", "", v.Encode(), "Content-Type", "application/x-www-form-urlencoded", "Remote-User", "eve", "Remote-Groups", "up-editor"); resp.StatusCode == http.StatusSeeOther {
+				t.Fatalf("created %q: %s", conf, b)
+			}
+		}
+		if resp, _ := e.do("GET", "/status/leak", "", ""); resp.StatusCode != 404 {
+			t.Fatalf("public page %d", resp.StatusCode)
+		}
+		for _, u := range []*User{{Role: editor}, {Role: editor, Tags: []string{}}} {
+			if tags, all := userTags(u); all || len(tags) != 0 {
+				t.Fatalf("%+v: %v %v", u, tags, all)
+			}
+			confTemplates(u) // must not index an empty list
+		}
+	})
+}
+
+func TestMaskEncodedQuery(t *testing.T) {
+	for _, raw := range []string{"https://x/?to%6ben=CANARY", "https://x/?TO%4BEN=CANARY", "https://x/?a=1&token=CANARY&token=CANARY", "https://x/?%zz=CANARY"} {
+		if s := maskURL(raw); strings.Contains(s, "CANARY") {
+			t.Fatalf("%s -> %s", raw, s)
+		}
+	}
+	if s := maskURL("https://x/?format=json"); s != "https://x/?format=json" {
+		t.Fatal(s)
+	}
+}

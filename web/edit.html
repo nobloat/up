@@ -7,7 +7,7 @@
 <p><label>name <span class="muted">(the file name before .monitor.conf or .page.conf; a status page is served at /status/&lt;name&gt;)</span><br><input name="name" value="{{.EditName}}" required autofocus autocomplete="off" pattern="[a-z0-9][a-z0-9.\-]*" title="lower case letters, digits, . and -"></label></p>
 <input type="hidden" name="new" value="1">{{else}}<input type="hidden" name="name" value="{{.EditName}}">{{end}}
 <p><textarea name="conf" rows="18" spellcheck="false" aria-label="configuration, one key = value per line" aria-describedby="allowed-tags">{{.Conf}}</textarea></p>
-<p id="allowed-tags" class="muted">tags you may use: {{with .AllowedTags}}<b>{{range $i, $t := .}}{{if $i}}, {{end}}{{$t}}{{end}}</b>, at least one{{else}}any{{end}}</p>
+<p id="allowed-tags" class="muted">tags you may use: {{if .AnyTag}}any{{else if .AllowedTags}}<b>{{range $i, $t := .AllowedTags}}{{if $i}}, {{end}}{{$t}}{{end}}</b>, at least one{{else}}none, ask an admin{{end}}</p>
 <p class="buttons"><button title="save (ctrl+enter)"><span class="ico" aria-hidden="true">✓</span> save <kbd>ctrl ⏎</kbd></button>
 <a href="{{if .EditNew}}/{{else if eq .EditKind "page"}}/status/{{.EditName}}{{else}}/monitor/{{.EditName}}{{end}}" class="btn cancel" title="cancel (esc)"><span class="ico" aria-hidden="true">×</span> cancel <kbd>esc</kbd></a>
 {{if not .EditNew}}<button name="delete" value="1" formnovalidate title="delete" onclick="return confirm('Delete {{index .KindNames .EditKind}} {{.EditName}}?{{if eq .EditKind "monitor"}} Its audit log is kept.{{end}}')"><span class="ico" aria-hidden="true">⌫</span> delete</button>{{end}}</p>

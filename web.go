@@ -244,7 +244,8 @@ type page struct {
 	EditNew     bool
 	Conf, Err   string
 	Templates   []confTemplate
-	AllowedTags []string // nil is any tag
+	AllowedTags []string
+	AnyTag      bool // AllowedTags doesn't apply
 	User        *User
 	AccountURL  string
 	LogoutURL   string
@@ -375,7 +376,8 @@ func maskURL(s string) string {
 	}
 	q := strings.Split(u.RawQuery, "&")
 	for i, p := range q {
-		if k, _, ok := strings.Cut(p, "="); ok && secretName(k) {
+		k, _, ok := strings.Cut(p, "=")
+		if dk, err := url.QueryUnescape(k); ok && (err != nil || secretName(dk)) { // decoded: the target sees to%6ben as token
 			q[i] = k + "=" + masked
 		}
 	}
@@ -537,8 +539,11 @@ var kindNames = map[string]string{"monitor": "monitor", "page": "status page"}
 // confTemplates starts a new file per monitor type and a status page; below admin, tags start as the user's own, since one is required.
 func confTemplates(u *User) []confTemplate {
 	tags, tag := "# tags = prod, public", "public"
-	if allowed := userTags(u); allowed != nil {
-		tags, tag = "tags = "+strings.Join(allowed, ", "), allowed[0]
+	if allowed, all := userTags(u); !all {
+		tags, tag = "tags = "+strings.Join(allowed, ", "), ""
+		if len(allowed) > 0 {
+			tag = allowed[0]
+		}
 	}
 	common := "# description = what this checks\n" + tags + "\n# notifiers = ops-chat\n# retry_count = 2\n"
 	return []confTemplate{
@@ -552,7 +557,8 @@ func confTemplates(u *User) []confTemplate {
 
 func (a *App) editPage(u *User, kind, name string, create bool) page {
 	p := a.page(u, nil, a.views(u, nil, "", "", "", false))
-	p.EditKind, p.EditName, p.EditNew, p.Templates, p.AllowedTags = kind, name, create, confTemplates(u), a.allowedTags(u, kind, name)
+	p.EditKind, p.EditName, p.EditNew, p.Templates = kind, name, create, confTemplates(u)
+	p.AllowedTags, p.AnyTag = a.allowedTags(u, kind, name)
 	return p
 }
 
@@ -603,12 +609,12 @@ func (a *App) confFile(kind, name string) string {
 	return filepath.Join(a.path, name+"."+kind+".conf")
 }
 
-// userTags: the tags u is limited to; nil is any tag.
-func userTags(u *User) []string {
+// userTags: the tags u is limited to, none at all when u.Tags is empty; all is any tag.
+func userTags(u *User) (tags []string, all bool) {
 	if u.Role >= admin || slices.Contains(u.Tags, "*") {
-		return nil
+		return nil, true
 	}
-	return u.Tags
+	return u.Tags, false
 }
 
 // loadedTags: the tags of the loaded monitor or status page; ok is false when it isn't loaded, e.g. a broken file.
@@ -627,16 +633,16 @@ func (a *App) loadedTags(kind, name string) (tags []string, ok bool) {
 	return nil, false
 }
 
-// allowedTags: the tags u may save on name, their own plus the ones it already has; nil is any tag.
-func (a *App) allowedTags(u *User, kind, name string) []string {
-	own := userTags(u)
-	if own == nil {
-		return nil
+// allowedTags: the tags u may save on name, their own plus the ones it already has; all is any tag.
+func (a *App) allowedTags(u *User, kind, name string) (tags []string, all bool) {
+	own, all := userTags(u)
+	if all {
+		return nil, true
 	}
 	old, _ := a.loadedTags(kind, name)
-	tags := slices.Concat(own, old)
+	tags = slices.Concat(own, old)
 	slices.Sort(tags)
-	return slices.Compact(tags)
+	return slices.Compact(tags), false
 }
 
 // mayEdit: admins edit every file, editors what shares a tag with them; a file that failed to load has no tags, so only admins.
@@ -704,7 +710,10 @@ func (a *App) saveConf(u *User, kind, name, conf string, create, del bool) error
 		}
 		tags = m.Tags
 	}
-	if allowed := a.allowedTags(u, kind, name); allowed != nil {
+	if allowed, all := a.allowedTags(u, kind, name); !all {
+		if len(allowed) == 0 {
+			return errors.New("tags: you have no access tags, ask an admin")
+		}
 		if len(tags) == 0 {
 			return fmt.Errorf("tags: give at least one of %s", strings.Join(allowed, ", "))
 		}
