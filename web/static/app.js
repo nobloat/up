@@ -34,14 +34,6 @@ function relabel(selected) {
   });
 }
 
-// morph keeps focus; open <details> stay open across a re-render
-function patch(current, next) {
-  current.querySelectorAll('details[open][id]').forEach(d => next.querySelector('#' + CSS.escape(d.id))?.setAttribute('open', ''));
-  const selected = $('#live tr.sel')?.id;
-  morph(current, next);
-  relabel(selected);
-}
-
 // ---- live updates ------------------------------------------------------------------------------
 const conn = document.createElement('div');
 conn.className = 'conn';
@@ -72,7 +64,7 @@ function connect() {
   };
   stream.onmessage = e => notify(JSON.parse(e.data));
   stream.addEventListener('main', e => {
-    patch(live(), parseHTML(e.data).querySelector('#live'));
+    morph(live(), parseHTML(e.data).querySelector('#live')); // keeps focus, open menus, the selected row and phone labels
     syncOverallState();
   });
   stream.addEventListener('head', e => {

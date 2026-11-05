@@ -653,7 +653,7 @@ details.audit { padding: .6rem 1rem; }
   main table:not(.keep) td { display: block; border: 0; padding: .2rem 0 .2rem 7.5rem; text-align: left; overflow-wrap: anywhere; }
   main table:not(.keep) td.num { text-align: right; }
   main table:not(.keep) td.hide-phone { display: block !important; }
-  main table:not(.keep) td::before { content: attr(data-label); float: left; width: 7rem; margin-left: -7.5rem; color: var(--muted); text-align: left; overflow-wrap: normal; }
+  main table:not(.keep) td::before { content: attr(data-label); float: left; width: 7rem; margin-left: -7.5rem; color: var(--muted); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* a long header shortens with …, keep headers short */
   main table:not(.keep) :is(td:first-child[data-label=""], td.pick + td[data-label=""]) + td { padding-left: 0; padding-right: 2rem; font-weight: bold; } /* after the state column: the row's title */
   main table:not(.keep) :is(td:first-child[data-label=""], td.pick + td[data-label=""]) + td::before { content: none; }
   main table:not(.keep) td:empty { display: none !important; }

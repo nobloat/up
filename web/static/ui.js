@@ -311,10 +311,11 @@ document.addEventListener('toggle', e => {
 document.querySelectorAll('.tag').forEach(t => { if (!t.title && t.scrollWidth > t.clientWidth) t.title = t.textContent.trim(); });
 
 // tables: each cell gets its column header as data-label, which phones show as "label … value" lines
-document.querySelectorAll('main table:not(.keep)').forEach(t => {
+const labelTables = () => document.querySelectorAll('main table:not(.keep)').forEach(t => {
   const heads = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
   t.querySelectorAll('tbody tr, tfoot tr').forEach(tr => [...tr.cells].forEach((td, i) => td.dataset.label = heads[i] ?? ''));
 });
+labelTables();
 
 // command palette: Ctrl+K (anywhere) or : opens it. Commands: the nav (g+letter), every visible [data-key] button or link,
 // theme, shortcuts help, the app's window.commands = [{label, sub, run}], and a search fallback.
@@ -450,19 +451,23 @@ document.addEventListener('click', async e => {
 });
 document.querySelectorAll('.nojs').forEach(b => b.hidden = true);
 
-// morph patches a into b in place, so focus and caret survive a live re-render; unfocused inputs take the server value
-window.morph = (a, b) => {
+// morph patches a into b in place, so focus and caret survive a live re-render; unfocused inputs take the server value.
+// What the user opened or picked in the browser stays: details[open], the selected row (.sel), and the phone table labels.
+const patch = (a, b) => {
   if (a.nodeName !== b.nodeName) return a.replaceWith(b);
   if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
-  for (const {name} of [...a.attributes]) if (!b.hasAttribute(name)) a.removeAttribute(name);
+  const sel = a.classList.contains('sel');
+  for (const {name} of [...a.attributes]) if (!b.hasAttribute(name) && name !== 'open' && name !== 'data-label') a.removeAttribute(name);
   for (const {name, value} of b.attributes) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
+  if (sel) a.classList.add('sel');
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a !== document.activeElement) {
     if (a.type === 'checkbox' || a.type === 'radio') a.checked = b.checked; else a.value = b.value;
   }
   const ac = [...a.childNodes], bc = [...b.childNodes];
-  bc.forEach((n, i) => ac[i] ? morph(ac[i], n) : a.append(n));
+  bc.forEach((n, i) => ac[i] ? patch(ac[i], n) : a.append(n));
   ac.slice(bc.length).forEach(n => n.remove());
 };
+window.morph = (a, b) => { patch(a, b); labelTables(); };
 
 // toasts: the page's flash messages float bottom right (full width on phones); successes fade after 5s, errors stay until closed.
 // Without JS they stay where the page put them.
