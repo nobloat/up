@@ -23,7 +23,8 @@ import (
 const reloadInterval = 5 * time.Second
 
 var (
-	slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*$`)
+	slugRe  = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*$`)
+	colorRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 )
 
 type Config struct {
@@ -36,6 +37,9 @@ type Config struct {
 	Access             map[string][]string        `json:"access"` // access.<IdP group> = tags, * for all
 	LogoutURL          string                     `json:"logout_url"`
 	AccountURL         string                     `json:"account_url"`
+	Design             string                     `json:"design"`           // graphite (default) or paper, the nobloat/ui design
+	BrandColor         string                     `json:"brand_color"`      // #rrggbb, --brand; empty: the design's own
+	BrandColorDark     string                     `json:"brand_color_dark"` // #rrggbb, --brand-dark; empty: derived from brand_color
 	Proxy              string                     `json:"proxy"`
 	EvaluationInterval Duration                   `json:"evaluation_interval"`
 	Heartbeat          *Heartbeat                 `json:"heartbeat"`
@@ -416,6 +420,14 @@ func (c *Config) validate() error {
 			return fmt.Errorf("invalid proxy %q", c.Proxy)
 		}
 		c.proxy = u
+	}
+	if c.Design != "" && c.Design != "graphite" && c.Design != "paper" {
+		return fmt.Errorf("design: want graphite or paper, got %q", c.Design)
+	}
+	for k, v := range map[string]string{"brand_color": c.BrandColor, "brand_color_dark": c.BrandColorDark} {
+		if v != "" && !colorRe.MatchString(v) {
+			return fmt.Errorf("%s: want a color like #3b6e94, got %q", k, v)
+		}
 	}
 	if c.EvaluationInterval <= 0 {
 		c.EvaluationInterval = Duration(30 * time.Second)
