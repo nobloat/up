@@ -1,0 +1,111 @@
+{{/* nobloat/ui v1 partials: copy unchanged to web/partials.html and parse it before the pages.
+A page defines "main" and runs {{template "nb-layout" .}}; it may also define "head" (extra <head> tags),
+"keys" (page shortcuts for the keys line, each starting with " · "), "help" (extra <tr> rows) and "scripts".
+
+The page value (dot) needs:
+  .Lang .Title .Here .Q .Version string     .Err .Notice string (flash)
+  .Brand  {App, Char, Name, Color, ColorDark, Logo, LogoDark, Icon, Design string}
+          App "bill", Char "€" (the ][€ glyph). Name, Logo, LogoDark, Icon only for a custom brand.
+          Color/ColorDark set --brand/--brand-dark (#rrggbb); Design "" (graphite) or "paper".
+  .Nav    []{Href, Label, Key string; On bool}   empty hides the nav; Key is the g+letter shortcut
+  .Search string (search form action, "" = none)  .SearchAPI string (live search endpoint, optional)
+  .User .UserURL .LogoutURL .SettingsURL string  (⚙ next to logout; settings hold account, preferences, app settings)
+  .Crumbs []{Href, Label string}               breadcrumbs above the title, the last one is the current page (no Href)
+  .SessionEnd .SessionRenew string             RFC 3339 end of the sign-in and a GET url that extends it (answer {end}); optional
+  .Texts map[string]string (the js.*, search.* and palette.* texts)
+  .T(key string, args ...any) string
+*/}}
+
+{{define "nb-head"}}<!doctype html>
+<html lang="{{.Lang}}"{{with .Brand.Design}} data-design="{{.}}"{{end}}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{template "nb-name" .}}{{with .Title}} · {{.}}{{end}}</title>
+<link rel="icon" href="{{or .Brand.Icon "/static/favicon.svg"}}">
+<link rel="stylesheet" href="/static/ui.css">
+{{with .Brand.Color}}<style>:root { --brand: {{.}};{{with $.Brand.ColorDark}} --brand-dark: {{.}};{{end}} }</style>{{end}}
+<script>try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+{{block "head" .}}{{end}}
+</head>{{end}}
+
+{{define "nb-name"}}{{with .Brand.Name}}{{.}}{{else}}][{{$.Brand.Char}} {{$.Brand.App}}{{end}}{{end}}
+
+{{define "nb-mark"}}<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M1 5h4v22H1M12.5 5h-4v22h4"/><text x="14.5" y="24">{{.}}</text></svg>{{end}}
+
+{{define "nb-logo"}}<a href="/" class="logo" aria-label="{{template "nb-name" .}}">{{with .Brand.Logo}}<img class="light" src="{{.}}" alt="">{{with $.Brand.LogoDark}}<img class="dark" src="{{.}}" alt="">{{end}}{{else}}{{template "nb-mark" .Brand.Char}}<span class="name">{{.Brand.App}}</span>{{end}}</a>{{end}}
+
+{{define "nb-langtheme"}}<span class="prefs"><span><a href="/lang/de?rd={{.Here}}"{{if eq .Lang "de"}} class="on" aria-current="true"{{end}}>de</a> · <a href="/lang/en?rd={{.Here}}"{{if eq .Lang "en"}} class="on" aria-current="true"{{end}}>en</a></span>
+<button type="button" id="theme" class="round" hidden><i class="icon-contrast" aria-hidden="true"></i></button></span>{{end}}
+
+{{/* language and theme as settings rows; on phones the header hides them, so the settings page must include this */}}
+{{define "nb-prefs"}}<span class="lab">{{.T "prefs.lang"}}</span><span class="seg"><a href="/lang/de?rd={{.Here}}"{{if eq .Lang "de"}} class="on" aria-current="true"{{end}}>deutsch</a><a href="/lang/en?rd={{.Here}}"{{if eq .Lang "en"}} class="on" aria-current="true"{{end}}>english</a></span>
+<span class="lab">{{.T "prefs.theme"}}</span><span class="seg" id="theme-seg"><label><input type="radio" name="nb-theme" value="" checked>{{.T "js.theme.auto"}}</label><label><input type="radio" name="nb-theme" value="light">{{.T "js.theme.light"}}</label><label><input type="radio" name="nb-theme" value="dark">{{.T "js.theme.dark"}}</label></span>{{end}}
+
+{{define "nb-crumbs"}}{{with .Crumbs}}<nav class="crumbs" aria-label="{{$.T "nav.crumbs"}}"><ol>{{range .}}<li>{{if .Href}}<a class="up" href="{{.Href}}">{{.Label}}</a>{{else}}<span aria-current="page">{{.Label}}</span>{{end}}</li>{{end}}</ol></nav>{{end}}{{end}}
+
+{{define "nb-header"}}<header class="app">
+{{template "nb-logo" .}}
+{{with .Search}}<form class="gsearch" action="{{.}}" role="search"{{with $.SearchAPI}} data-api="{{.}}"{{end}}>
+<input id="q" name="q" value="{{$.Q}}" placeholder="{{$.T "search.placeholder"}}" aria-label="{{$.T "search.placeholder"}}" autocomplete="off"><kbd>/</kbd>
+<div class="results" id="results" hidden></div>
+</form>{{end}}
+<button type="button" id="palbtn" class="palbtn" title="{{.T "palette.title"}}" aria-label="{{.T "palette.title"}}" hidden><span aria-hidden="true">⌘</span><kbd>Ctrl K</kbd></button>
+<span class="right">
+{{template "nb-langtheme" .}}
+{{with .User}}{{if $.UserURL}}<a class="who" href="{{$.UserURL}}">{{.}}</a>{{else}}<span class="who">{{.}}</span>{{end}}{{end}}
+{{with .SettingsURL}}<a class="round" href="{{.}}" title="{{$.T "nav.settings"}}" aria-label="{{$.T "nav.settings"}}"><i class="icon-cog" aria-hidden="true"></i></a>{{end}}
+{{with .LogoutURL}}<a class="round" href="{{.}}" title="{{$.T "nav.logout"}}" aria-label="{{$.T "nav.logout"}}"><i class="icon-power" aria-hidden="true"></i></a>{{end}}
+{{if .Nav}}<button type="button" id="menu" class="round" aria-label="{{.T "nav.menu"}}" aria-expanded="false"><i class="icon-menu" aria-hidden="true"></i></button>{{end}}
+</span>
+</header>
+{{with .Nav}}<nav class="app" id="nav">
+{{range .}}<a href="{{.Href}}"{{with .Key}} data-g="{{.}}"{{end}}{{if .On}} class="on" aria-current="page"{{end}}>{{.Label}}</a>
+{{end}}<span class="g"><kbd>g</kbd> + {{$.T "nav.letter"}}</span>
+</nav>{{end}}{{end}}
+
+{{define "nb-flash"}}{{with .Err}}<p class="flash" role="alert">{{.}}</p>{{end}}{{with .Notice}}<p class="flash ok" role="status">{{.}}</p>{{end}}{{end}}
+
+{{define "nb-foot"}}{{if .Nav}}<p class="keys"><kbd>?</kbd> {{.T "key.help"}}{{if .Search}} · <kbd>/</kbd> {{.T "key.search"}}{{end}}{{block "keys" .}}{{end}}</p>{{end}}
+<footer class="foot">
+<b>][{{.Brand.Char}} nobloat/{{.Brand.App}}</b>
+<span>{{.T "foot.made"}} <a href="https://spiessknafl.at/peter" rel="noopener">cinemast</a> · <a href="https://nobloat.org" rel="noopener">nobloat.org</a> · <a href="https://github.com/nobloat/{{.Brand.App}}" rel="noopener">src</a> · {{.Version}}</span>
+</footer>
+<dialog id="help" aria-labelledby="help-h">
+<h2 id="help-h">{{.T "help.title"}}</h2>
+<table>
+{{if .Nav}}<tr><td><kbd>g</kbd> {{range .Nav}}{{with .Key}}<kbd>{{.}}</kbd> {{end}}{{end}}</td><td>{{.T "help.goto"}}</td></tr>{{end}}
+{{if .Search}}<tr><td><kbd>/</kbd></td><td>{{.T "help.search"}}</td></tr>{{end}}
+<tr><td><kbd>Ctrl</kbd> <kbd>k</kbd> · <kbd>:</kbd></td><td>{{.T "help.palette"}}</td></tr>
+<tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>{{.T "help.jk"}}</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>{{.T "help.enter"}}</td></tr>
+<tr><td><kbd>h</kbd> <kbd>l</kbd></td><td>{{.T "help.hl"}}</td></tr>
+<tr><td><kbd>p</kbd> <kbd>n</kbd></td><td>{{.T "help.pages"}}</td></tr>
+<tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>{{.T "help.chips"}}</td></tr>
+<tr><td><kbd>x</kbd></td><td>{{.T "help.x"}}</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>{{.T "help.esc"}}</td></tr>
+{{block "help" .}}{{end}}
+</table>
+<form method="dialog" class="row end"><button>{{.T "btn.close"}} <kbd>Esc</kbd></button></form>
+</dialog>
+<dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title" hidden></h2><p id="confirm-text"></p><form method="dialog" class="row end"><button value="no">{{.T "btn.cancel"}} <kbd>Esc</kbd></button><button value="yes" class="pri" autofocus>{{.T "btn.ok"}} <kbd>Enter</kbd></button></form></dialog>
+<script type="application/json" id="texts">{{.Texts}}</script>
+<script src="/static/ui.js"></script>
+{{block "scripts" .}}{{end}}{{end}}
+
+{{define "nb-layout"}}{{template "nb-head" .}}
+<body{{with .SessionEnd}} data-session-end="{{.}}"{{end}}{{with .SessionRenew}} data-session-renew="{{.}}"{{end}}>
+<a class="skip" href="#main">{{.T "nav.skip"}}</a>
+{{template "nb-header" .}}
+<main id="main">{{template "nb-crumbs" .}}{{template "nb-flash" .}}{{template "main" .}}</main>
+{{template "nb-foot" .}}
+</body>
+</html>{{end}}
+
+{{define "nb-bare"}}{{template "nb-head" .}}
+<body class="center">
+{{template "nb-logo" .}}
+<main>{{template "nb-flash" .}}{{template "main" .}}</main>
+{{template "nb-foot" .}}
+</body>
+</html>{{end}}

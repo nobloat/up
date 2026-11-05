@@ -1,0 +1,671 @@
+/* nobloat/ui v1: copy unchanged to web/static/ui.css; app-specific styles go in app.css.
+   Every token is wrapped in :where() (specificity 0), so an app's own `:root { --brand: … }` always wins. */
+
+/* ---- tokens ---------------------------------------------------------------------------------- */
+:where(:root) {
+  color-scheme: light dark; /* auto follows the OS, data-theme pins it */
+  --brand: #0a5fc7; /* primary color: the only value most apps set */
+  /* --brand-dark: optional; by default dark mode lightens --brand (70% brand, 30% white) */
+  --accent: light-dark(var(--brand), var(--brand-dark, color-mix(in srgb, var(--brand) 70%, white)));
+  /* graphite: pencil greys, neutral with a hair of warmth (not brown, not blue-cold); softer than pure white and black */
+  --bg: light-dark(#f6f6f5, #18191b); --surface: light-dark(#fff, #1f2022); --fg: light-dark(#1b1c1e, #e5e5e4); --muted: light-dark(#5c5e62, #9c9da0);
+  --line: light-dark(#e1e1df, #2e2f32); --chip: light-dark(#ececea, #252629);
+  --sel: color-mix(in srgb, var(--accent) 7%, var(--bg)); /* selected row, follows the brand; light enough for accent text on it */
+  /* state colors: one value for both themes, same in favicons, logos, mails */
+  --green: #22c55e; --yellow: #eab308; --red: #ef4444; --blue: #3b82f6; --grey: #8b8b94;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r: 6px; --r-lg: 12px; /* control and panel radius */
+  --maxw: 76rem;
+}
+/* the second design: <html data-design="paper">, a printed form filled in by hand */
+:where([data-design="paper"]) {
+  --brand: #1f4fa3; --brand-dark: #e8c766; /* pen blue; a highlighter yellow at night */
+  --bg: light-dark(#f6f3ea, #1c1b19); --surface: var(--bg); --fg: light-dark(#23211d, #d9d4c6); --muted: light-dark(#5c584f, #a39d8e);
+  --line: light-dark(#bdb7a8, #4a463e); --chip: light-dark(#ece8dc, #252420);
+  --bar: light-dark(#ecebdf, #22211e); /* the green-bar stripe of continuous printer paper */
+  --sketch: 255px 14px 225px 14px / 14px 225px 14px 255px; /* uneven corners: drawn by hand, not printed */
+  --sketch-sm: 12px 5px 14px 4px / 4px 13px 5px 12px;
+  --r: 0; --r-lg: 0;
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+/* ---- base ------------------------------------------------------------------------------------ */
+* { box-sizing: border-box; }
+html { overflow-x: clip; } /* safety net: never a sideways scrollbar (clip keeps sticky working); check.mjs still reports any overflow */
+body { margin: 0 auto; max-width: var(--maxw); padding: 1rem 16px 2rem; font: 14px/1.6 var(--mono); background: var(--bg); color: var(--fg); overflow-wrap: break-word; }
+a { color: inherit; }
+/* keyboard focus: always visible, one style; fields show it with their border instead */
+:is(a, button, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::placeholder { color: var(--muted); opacity: 1; }
+h1 { font-size: 1.1rem; margin: 0; font-weight: normal; }
+h2 { font-size: 1rem; margin: 1.6rem 0 .6rem; font-weight: normal; color: var(--muted); }
+.muted { color: var(--muted); }
+small { font-size: .82em; }
+code { font-family: var(--mono); }
+[hidden] { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.nw { white-space: nowrap; }
+.sectionlabel { margin-top: 2.2rem; color: var(--muted); font-size: .8em; text-transform: uppercase; letter-spacing: .06em; }
+
+/* ---- logo: the ][ mark with one character in the brand color, or a custom image ---------------- */
+.logo { display: inline-flex; align-items: center; gap: .5em; text-decoration: none; font-weight: bold; white-space: nowrap; }
+.mark { height: 1.8rem; width: auto; flex: none; vertical-align: middle; }
+.mark path { fill: none; stroke: var(--grey); stroke-width: 2.5; }
+.mark text { fill: var(--accent); font: 700 20px var(--mono); }
+.logo img { height: 1.8rem; width: auto; max-width: 12rem; vertical-align: middle; }
+/* a dark logo variant replaces the light one whenever the page is dark: OS dark (unless pinned light) or pinned dark */
+.logo img.dark { display: none; }
+:root[data-theme="dark"] .logo img.dark { display: inline; }
+:root[data-theme="dark"] .logo:has(img.dark) img.light { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo img.dark { display: inline; }
+  :root:not([data-theme="light"]) .logo:has(img.dark) img.light { display: none; }
+}
+
+/* ---- header, nav, search ------------------------------------------------------------------- */
+header.app { display: flex; flex-wrap: wrap; gap: .8rem 1.6rem; align-items: center; padding-bottom: .9rem; border-bottom: 1px solid var(--line); }
+header.app .right { margin-left: auto; display: flex; gap: .9rem; align-items: center; color: var(--muted); white-space: nowrap; }
+header.app .right a { text-decoration: none; }
+header.app .right a.on { color: var(--fg); }
+#menu { display: none; }
+nav.app { display: flex; gap: 1.6rem; padding: .8rem 0 0; flex-wrap: wrap; align-items: baseline; }
+nav.app a { color: var(--muted); text-decoration: none; padding-bottom: .45rem; }
+nav.app a u { text-decoration-thickness: 1px; text-underline-offset: 3px; }
+nav.app a.on { color: var(--fg); border-bottom: 2px solid var(--fg); }
+nav.app .g { margin-left: auto; font-size: .8em; color: var(--muted); }
+.gsearch { position: relative; flex: 1; min-width: 12rem; max-width: 26rem; }
+.gsearch input { width: 100%; height: 2rem; padding: 0 2rem 0 .7rem; border-radius: var(--r); background: var(--chip); border: 1px solid transparent; }
+.gsearch input:focus { outline: none; border-color: var(--fg); background: var(--bg); box-shadow: none; }
+.gsearch kbd { position: absolute; right: .6rem; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.gsearch input:focus ~ kbd, .gsearch input:not(:placeholder-shown) ~ kbd { display: none; }
+.results { position: absolute; left: 0; right: 0; min-width: min(30rem, 90vw); top: 2.4rem; z-index: 20; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: 0 10px 30px rgb(0 0 0 / .15); padding: .5rem 0; max-height: 70vh; overflow: auto; }
+.results .grp { padding: .5rem 1rem .2rem; color: var(--muted); font-size: .8em; text-transform: uppercase; letter-spacing: .06em; }
+.results a { padding: .3rem 1rem; display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
+.results a.sel, .results a:hover { background: var(--sel); }
+.results .sub { color: var(--muted); font-size: .85em; text-align: right; }
+.results .none { padding: .3rem 1rem; color: var(--muted); }
+.results.pick { right: auto; min-width: 12rem; max-width: 22rem; max-height: 16rem; padding: .25rem 0; font-size: .9em; z-index: 40; } /* autocomplete under an input, placed by ui.js */
+.results.pick a { padding: .2rem .7rem; }
+.who { color: var(--muted); }
+.skip:not(:focus) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip:focus { position: absolute; left: 16px; top: .5rem; z-index: 80; background: var(--bg); padding: .3rem .7rem; } /* first Tab: jump past header and nav */
+.palbtn { display: inline-flex; gap: .35rem; align-items: center; height: 2rem; padding: 0 .6rem; border-radius: var(--r); color: var(--muted); background: none; border: 1px solid var(--line); }
+.palbtn:hover { color: var(--fg); }
+.palbtn kbd { margin: 0; }
+/* breadcrumbs: where am I, one click up; phones show only "← parent" (the title says where you are) */
+.crumbs ol { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem .5rem; margin: 1.2rem 0 -.8rem; padding: 0; color: var(--muted); font-size: .9em; }
+.crumbs li + li::before { content: "/"; margin-right: .5rem; color: var(--line); }
+.crumbs a { text-decoration: none; } .crumbs a:hover { text-decoration: underline; }
+/* disconnected bar for pages with live updates */
+.conn { position: fixed; top: 0; left: 0; right: 0; z-index: 60; padding: .6rem 1rem; text-align: center; font-weight: bold; color: #fff; background: var(--red); }
+
+/* ---- controls ------------------------------------------------------------------------------ */
+input, select, textarea, button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); padding: .25rem .6rem; min-width: 0; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
+textarea { width: 100%; }
+button, .btn { cursor: pointer; white-space: nowrap; text-decoration: none; display: inline-block; border: 1px solid var(--line); border-radius: var(--r); padding: .25rem .75rem; background: var(--bg); line-height: inherit; }
+button:hover, .btn:hover { border-color: var(--muted); background: color-mix(in srgb, var(--fg) 5%, var(--bg)); }
+button.pri:hover, .btn.pri:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+.round:hover { background: none; }
+button.pri, .btn.pri { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(--c-text); }
+/* every create, edit, delete and copy button carries its icon (::before, from the icon set below) */
+:is(button, .btn, summary):is(.new, .edit, .del, .copy)::before { content: ""; display: inline-block; width: 1em; height: 1em; margin-right: .45em; vertical-align: -.15em; background: currentColor;
+  mask: var(--icon) center / contain no-repeat; }
+.round:is(.new, .edit, .del, .copy)::before { margin: 0; }
+.new { --icon: var(--icon-plus); } .edit { --icon: var(--icon-edit); } .del { --icon: var(--icon-trash); } .copy { --icon: var(--icon-copy); }
+.copy.done { --icon: var(--icon-check); --c: var(--green); color: var(--c-text); }
+/* icons: one class, <i class="icon-cog" aria-hidden="true"></i> (or role="img" aria-label when it carries meaning alone);
+   1em square, drawn in currentColor: size with font-size, tint with color */
+:is([class^="icon-"], [class*=" icon-"]) { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -.125em; background: currentColor; mask: var(--icon) center / contain no-repeat; }
+.round :is([class^="icon-"], [class*=" icon-"]) { width: 1.05rem; height: 1.05rem; vertical-align: middle; }
+/* icons:begin (generated from icons/*.svg by go test -update) */
+:where(:root) {
+  --icon-archive: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2' y='2.5' width='12' height='3' rx='.8'/%3E%3Cpath d='M3 5.5v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-7M6.5 8.5h3'/%3E%3C/svg%3E");
+  --icon-arrow-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 3v10M4 9l4 4 4-4'/%3E%3C/svg%3E");
+  --icon-arrow-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M13 8H3M7 4 3 8l4 4'/%3E%3C/svg%3E");
+  --icon-arrow-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3 8h10M9 4l4 4-4 4'/%3E%3C/svg%3E");
+  --icon-arrow-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 13V3M4 7l4-4 4 4'/%3E%3C/svg%3E");
+  --icon-bell: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4 11.5v-4a4 4 0 0 1 8 0v4l1 1H3zM6.5 14.5h3'/%3E%3C/svg%3E");
+  --icon-calendar: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2.5' y='3.5' width='11' height='10' rx='1.5'/%3E%3Cpath d='M2.5 6.5h11M5.5 2v3M10.5 2v3'/%3E%3C/svg%3E");
+  --icon-chart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5'/%3E%3C/svg%3E");
+  --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3 8.5l3 3 7-7'/%3E%3C/svg%3E");
+  --icon-chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3.5 6 8 10.5 12.5 6'/%3E%3C/svg%3E");
+  --icon-chevron-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M10 3.5 5.5 8l4.5 4.5'/%3E%3C/svg%3E");
+  --icon-chevron-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6 3.5 10.5 8 6 12.5'/%3E%3C/svg%3E");
+  --icon-chevron-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3.5 10 8 5.5l4.5 4.5'/%3E%3C/svg%3E");
+  --icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='5.8'/%3E%3Cpath d='M8 4.8V8l2 1.5'/%3E%3C/svg%3E");
+  --icon-cog: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M13.06 6.43 15.01 6.85 15.01 9.15 13.06 9.57 12.69 10.47 13.77 12.14 12.14 13.77 10.47 12.69 9.57 13.06 9.15 15.01 6.85 15.01 6.43 13.06 5.53 12.69 3.86 13.77 2.23 12.14 3.31 10.47 2.94 9.57 .99 9.15 .99 6.85 2.94 6.43 3.31 5.53 2.23 3.86 3.86 2.23 5.53 3.31 6.43 2.94 6.85 .99 9.15 .99 9.57 2.94 10.47 3.31 12.14 2.23 13.77 3.86 12.69 5.53Z'/%3E%3Ccircle cx='8' cy='8' r='2.3'/%3E%3C/svg%3E");
+  --icon-contrast: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='5.8'/%3E%3Cpath d='M8 2.2a5.8 5.8 0 0 1 0 11.6z' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+  --icon-copy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='5.5' y='5.5' width='8' height='8' rx='1.5'/%3E%3Cpath d='M10.5 3.5V3A1.5 1.5 0 0 0 9 1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5'/%3E%3C/svg%3E");
+  --icon-dashboard: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2.5' y='2.5' width='4.5' height='4.5' rx='1'/%3E%3Crect x='9' y='2.5' width='4.5' height='4.5' rx='1'/%3E%3Crect x='2.5' y='9' width='4.5' height='4.5' rx='1'/%3E%3Crect x='9' y='9' width='4.5' height='4.5' rx='1'/%3E%3C/svg%3E");
+  --icon-download: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 2.5v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11'/%3E%3C/svg%3E");
+  --icon-edit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M10.5 2.5l3 3-8 8h-3v-3zM9 4l3 3'/%3E%3C/svg%3E");
+  --icon-error: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4'/%3E%3C/svg%3E");
+  --icon-euro: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M12 4.2a4.6 4.6 0 1 0 0 7.6M2.5 7h7M2.5 9h7'/%3E%3C/svg%3E");
+  --icon-external: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3'/%3E%3C/svg%3E");
+  --icon-eye: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M1.5 8S3.9 3.5 8 3.5 14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z'/%3E%3Ccircle cx='8' cy='8' r='2'/%3E%3C/svg%3E");
+  --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M9 1.5H4.5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5zM9 1.5V5h3.5'/%3E%3C/svg%3E");
+  --icon-filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 3.5h11l-4.3 5v4l-2.4 1.5V8.5z'/%3E%3C/svg%3E");
+  --icon-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z'/%3E%3C/svg%3E");
+  --icon-help: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M6.2 6.3a1.9 1.9 0 1 1 2.6 1.7c-.5.2-.8.6-.8 1.1v.4'/%3E%3Ccircle cx='8' cy='11.3' r='0.95' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+  --icon-home: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 7.5 8 3l5.5 4.5M4 6.5V13h3V9.5h2V13h3V6.5'/%3E%3C/svg%3E");
+  --icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M8 7.2v4'/%3E%3Ccircle cx='8' cy='5' r='0.95' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+  --icon-key: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='5' cy='11' r='3'/%3E%3Ccircle cx='5' cy='11' r='.9' fill='currentColor' stroke='none'/%3E%3Cpath d='M7.1 8.9 13.5 2.5M11.7 4.3l1.8 1.8M9.6 6.4l1.4 1.4'/%3E%3C/svg%3E");
+  --icon-link: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M7 9a2.8 2.8 0 0 0 4 0l2-2a2.8 2.8 0 0 0-4-4l-.8.8M9 7a2.8 2.8 0 0 0-4 0l-2 2a2.8 2.8 0 0 0 4 4l.8-.8'/%3E%3C/svg%3E");
+  --icon-list: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M5.5 4h8M5.5 8h8M5.5 12h8'/%3E%3Ccircle cx='2.5' cy='4' r='0.95' fill='currentColor' stroke='none'/%3E%3Ccircle cx='2.5' cy='8' r='0.95' fill='currentColor' stroke='none'/%3E%3Ccircle cx='2.5' cy='12' r='0.95' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+  --icon-lock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='3.5' y='7' width='9' height='6.5' rx='1.5'/%3E%3Cpath d='M5.5 7V5a2.5 2.5 0 0 1 5 0v2'/%3E%3C/svg%3E");
+  --icon-mail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2' y='3.5' width='12' height='9' rx='1.5'/%3E%3Cpath d='M2.5 4.5 8 9l5.5-4.5'/%3E%3C/svg%3E");
+  --icon-menu: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 4h11M2.5 8h11M2.5 12h11'/%3E%3C/svg%3E");
+  --icon-minus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3 8h10'/%3E%3C/svg%3E");
+  --icon-moon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M13.2 9.6A5.5 5.5 0 1 1 6.4 2.8a4.5 4.5 0 0 0 6.8 6.8z'/%3E%3C/svg%3E");
+  --icon-more: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='3.5' cy='8' r='1.1' fill='currentColor' stroke='none'/%3E%3Ccircle cx='8' cy='8' r='1.1' fill='currentColor' stroke='none'/%3E%3Ccircle cx='12.5' cy='8' r='1.1' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+  --icon-ok: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M5.3 8.2l1.9 1.9 3.6-3.8'/%3E%3C/svg%3E");
+  --icon-pause: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M5.5 3.5v9M10.5 3.5v9'/%3E%3C/svg%3E");
+  --icon-play: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M5 3.5v9l7-4.5z'/%3E%3C/svg%3E");
+  --icon-plus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 3v10M3 8h10'/%3E%3C/svg%3E");
+  --icon-power: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 2v6M4.6 4.4a5 5 0 1 0 6.8 0'/%3E%3C/svg%3E");
+  --icon-print: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4.5 6V2.5h7V6M4.5 11.5h-1a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-1M4.5 9.5h7v4h-7z'/%3E%3C/svg%3E");
+  --icon-refresh: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M13.2 8A5.2 5.2 0 1 1 11.6 4.3M13.2 2.5v3h-3'/%3E%3C/svg%3E");
+  --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='7' cy='7' r='4.5'/%3E%3Cpath d='M10.5 10.5l3 3'/%3E%3C/svg%3E");
+  --icon-send: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M14 2 7 9M14 2l-4.5 12L7 9 2 6.5z'/%3E%3C/svg%3E");
+  --icon-star: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpolygon points='8.00,2.40 9.53,6.50 13.90,6.68 10.47,9.40 11.64,13.62 8.00,11.20 4.36,13.62 5.53,9.40 2.10,6.68 6.47,6.50'/%3E%3C/svg%3E");
+  --icon-sun: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='2.8'/%3E%3Cpath d='M12.60 8.00L14.20 8.00M11.25 11.25L12.38 12.38M8.00 12.60L8.00 14.20M4.75 11.25L3.62 12.38M3.40 8.00L1.80 8.00M4.75 4.75L3.62 3.62M8.00 3.40L8.00 1.80M11.25 4.75L12.38 3.62'/%3E%3C/svg%3E");
+  --icon-tag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6.5 2.5 5 13.5M11 2.5 9.5 13.5M3 6h10.5M2.5 10H13'/%3E%3C/svg%3E");
+  --icon-trash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 4.5h11M6 4.5v-2h4v2M4 4.5l.8 9h6.4l.8-9M6.8 7v4.5M9.2 7v4.5'/%3E%3C/svg%3E");
+  --icon-upload: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 10.5v-8M4.5 6 8 2.5 11.5 6M2.5 13.5h11'/%3E%3C/svg%3E");
+  --icon-user: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='5.5' r='2.5'/%3E%3Cpath d='M3 13.5c.8-2.6 2.8-4 5-4s4.2 1.4 5 4'/%3E%3C/svg%3E");
+  --icon-users: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='6' cy='5.5' r='2.2'/%3E%3Cpath d='M1.8 13c.6-2.3 2.2-3.6 4.2-3.6s3.6 1.3 4.2 3.6'/%3E%3Ccircle cx='11.2' cy='5' r='1.8'/%3E%3Cpath d='M11 9.4c1.7 0 3 1.1 3.4 3.1'/%3E%3C/svg%3E");
+  --icon-warning: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 2.2 14.3 13H1.7z'/%3E%3Cpath d='M8 6.5v3'/%3E%3Ccircle cx='8' cy='11.2' r='0.95' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+  --icon-x: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4 4l8 8M12 4l-8 8'/%3E%3C/svg%3E");
+}
+.icon-archive { --icon: var(--icon-archive); }
+.icon-arrow-down { --icon: var(--icon-arrow-down); }
+.icon-arrow-left { --icon: var(--icon-arrow-left); }
+.icon-arrow-right { --icon: var(--icon-arrow-right); }
+.icon-arrow-up { --icon: var(--icon-arrow-up); }
+.icon-bell { --icon: var(--icon-bell); }
+.icon-calendar { --icon: var(--icon-calendar); }
+.icon-chart { --icon: var(--icon-chart); }
+.icon-check { --icon: var(--icon-check); }
+.icon-chevron-down { --icon: var(--icon-chevron-down); }
+.icon-chevron-left { --icon: var(--icon-chevron-left); }
+.icon-chevron-right { --icon: var(--icon-chevron-right); }
+.icon-chevron-up { --icon: var(--icon-chevron-up); }
+.icon-clock { --icon: var(--icon-clock); }
+.icon-cog { --icon: var(--icon-cog); }
+.icon-contrast { --icon: var(--icon-contrast); }
+.icon-copy { --icon: var(--icon-copy); }
+.icon-dashboard { --icon: var(--icon-dashboard); }
+.icon-download { --icon: var(--icon-download); }
+.icon-edit { --icon: var(--icon-edit); }
+.icon-error { --icon: var(--icon-error); }
+.icon-euro { --icon: var(--icon-euro); }
+.icon-external { --icon: var(--icon-external); }
+.icon-eye { --icon: var(--icon-eye); }
+.icon-file { --icon: var(--icon-file); }
+.icon-filter { --icon: var(--icon-filter); }
+.icon-folder { --icon: var(--icon-folder); }
+.icon-help { --icon: var(--icon-help); }
+.icon-home { --icon: var(--icon-home); }
+.icon-info { --icon: var(--icon-info); }
+.icon-key { --icon: var(--icon-key); }
+.icon-link { --icon: var(--icon-link); }
+.icon-list { --icon: var(--icon-list); }
+.icon-lock { --icon: var(--icon-lock); }
+.icon-mail { --icon: var(--icon-mail); }
+.icon-menu { --icon: var(--icon-menu); }
+.icon-minus { --icon: var(--icon-minus); }
+.icon-moon { --icon: var(--icon-moon); }
+.icon-more { --icon: var(--icon-more); }
+.icon-ok { --icon: var(--icon-ok); }
+.icon-pause { --icon: var(--icon-pause); }
+.icon-play { --icon: var(--icon-play); }
+.icon-plus { --icon: var(--icon-plus); }
+.icon-power { --icon: var(--icon-power); }
+.icon-print { --icon: var(--icon-print); }
+.icon-refresh { --icon: var(--icon-refresh); }
+.icon-search { --icon: var(--icon-search); }
+.icon-send { --icon: var(--icon-send); }
+.icon-star { --icon: var(--icon-star); }
+.icon-sun { --icon: var(--icon-sun); }
+.icon-tag { --icon: var(--icon-tag); }
+.icon-trash { --icon: var(--icon-trash); }
+.icon-upload { --icon: var(--icon-upload); }
+.icon-user { --icon: var(--icon-user); }
+.icon-users { --icon: var(--icon-users); }
+.icon-warning { --icon: var(--icon-warning); }
+.icon-x { --icon: var(--icon-x); }
+/* icons:end */
+button:disabled { opacity: .5; cursor: not-allowed; }
+.round { border: 0; background: none; padding: 0; width: 1.75rem; height: 1.75rem; display: inline-grid; place-items: center; font-size: 1.1em; line-height: 1; cursor: pointer; color: var(--muted); } /* fixed box: ◐ ☀ ☾ ☰ ✕ differ in height */
+.round:hover { color: var(--fg); }
+kbd { font: .78em var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 .3em; color: var(--muted); }
+button kbd, .btn kbd { margin-left: .4em; }
+/* busy: ui.js sets aria-busy on the submit button; the spinner replaces nothing, so the label stays readable */
+[aria-busy="true"]::after, .spin { content: ""; display: inline-block; width: .8em; height: .8em; margin-left: .5em; vertical-align: -.1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+form.inline { display: inline; }
+.row { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
+.end { justify-content: flex-end; }
+.pagehead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1.6rem; }
+a.up { color: var(--muted); text-decoration: none; }
+/* segmented control: radio buttons as one pill */
+.seg { display: inline-flex; justify-self: start; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.seg label, .seg a { padding: .1rem .75rem; cursor: pointer; border-radius: inherit; text-decoration: none; }
+.seg a.on { background: var(--sel); box-shadow: inset 0 0 0 1px var(--accent); }
+.seg input { position: absolute; opacity: 0; }
+.seg label:has(input:checked) { background: var(--sel); box-shadow: inset 0 0 0 1px var(--accent); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); }
+/* overflow menu: <details class="more"><summary class="btn">…</summary><div class="menu">…</div></details> */
+details.more { position: relative; display: inline-block; }
+details.more summary { list-style: none; cursor: pointer; }
+details.more summary::-webkit-details-marker { display: none; }
+details.more .menu { position: absolute; right: 0; /* .left: ui.js flips it when the button sits at the left */ z-index: 10; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); padding: .4rem; display: grid; gap: .3rem; min-width: 16rem; box-shadow: 0 10px 30px rgb(0 0 0 / .15); }
+details.more .menu button, details.more .menu a { width: 100%; text-align: left; border: 0; }
+details.more .menu form { display: block; }
+details.more .menu.left { right: auto; left: 0; }
+
+/* ---- messages: flash (inline), toasts (ui.js), warn, banner -------------------------------- */
+/* messages: <p class="flash">text</p> or <div class="flash"><strong>title</strong>text</div>; an icon per kind, a full border with a
+   distinct left bar; .flash error, .flash.ok success, .warn warning, .banner information */
+.flash, .warn, .banner { --icon: var(--icon-error); display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .6rem; align-items: baseline;
+  border: 1px solid var(--c, var(--red)); border-left-width: 4px; padding: .5rem .9rem; background: color-mix(in srgb, var(--c, var(--red)) 10%, transparent); border-radius: var(--r); margin: 1rem 0 0; }
+:is(.flash, .warn, .banner)::before { content: ""; width: 1em; height: 1em; align-self: start; margin-top: .3em; grid-row: span 2; background: var(--c-text); mask: var(--icon) center / contain no-repeat; }
+:is(.flash, .warn, .banner) > strong { font-weight: bold; }
+.flash.ok { --icon: var(--icon-ok); }
+.warn { --icon: var(--icon-warning); }
+.banner { --icon: var(--icon-info); }
+.flash.ok { --c: var(--green); }
+.warn { --c: var(--yellow); }
+.banner { --c: var(--blue); }
+.toasts { position: fixed; bottom: 1rem; right: 16px; z-index: 50; display: grid; gap: .5rem; width: min(26rem, calc(100vw - 32px)); max-height: calc(100vh - 2rem); overflow: auto; }
+.toasts .flash { margin: 0; grid-template-columns: auto minmax(0, 1fr) auto; background: color-mix(in srgb, var(--c, var(--red)) 12%, var(--bg)); box-shadow: 0 4px 16px rgb(0 0 0 / .18); animation: toast-in .2s ease-out; }
+.toasts .flash .x { grid-column: 3; grid-row: 1; border: 0; background: none; min-width: 1.6rem; min-height: 1.6rem; margin: -.3rem -.4rem -.3rem 0; padding: 0; line-height: 1; color: var(--muted); }
+.toasts .flash.out { opacity: 0; transition: opacity .4s; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(.5rem); } }
+.saved { --c: var(--green); color: var(--c-text); font-size: .88em; }
+.saved.err { --c: var(--red); }
+
+/* ---- chips, tags, dots, status lights ------------------------------------------------------ */
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: 1.1rem; }
+.chip { display: inline-flex; align-items: center; max-width: 100%; background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: .05rem .75rem; white-space: nowrap; text-decoration: none; }
+.chip .n { color: var(--muted); margin-left: .45em; }
+.chip > [class*="icon-"] { margin-right: .35em; }
+.chip.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.chip:hover { border-color: var(--muted); }
+.sep { width: 1px; height: 1.4em; background: var(--line); margin: 0 .3rem; display: inline-block; }
+.tag { color: var(--accent); white-space: nowrap; margin-right: .45em; text-decoration: none; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; } /* a long tag shortens with …; ui.js puts the full name in title */
+.tag::before { content: "#"; }
+/* a tag with its own color (style="--c:#…", chosen by the user): tinted pill, the text keeps full contrast whatever the color */
+.tag[style*="--c"] { color: var(--fg); background: color-mix(in srgb, var(--c) 16%, var(--bg)); padding: 0 .45em; border-radius: var(--r); }
+.tag[style*="--c"]::before { color: var(--c-text); }
+/* color picker: preset swatches as radios (safe on light and dark), plus a custom color */
+.swatches { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; }
+.swatches label { width: 1.75rem; height: 1.75rem; border-radius: 50%; background: var(--c); cursor: pointer; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .2); position: relative; }
+.swatches input[type=radio] { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.swatches label:has(:checked) { outline: 2px solid var(--fg); outline-offset: 2px; }
+.swatches label:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.swatches input[type=color] { width: 1.75rem; height: 1.75rem; padding: 0; border-radius: 50%; overflow: hidden; }
+/* --c-text: a state color as text, darker in light mode so it reaches 4.5:1 (state colors are bright, for lights) */
+:where(*) { --c-text: light-dark(color-mix(in srgb, var(--c, var(--grey)) 58%, black), color-mix(in srgb, var(--c, var(--grey)) 80%, white)); }
+.dot { display: inline-block; width: .65em; height: .65em; border-radius: 50%; background: var(--c, var(--grey)); margin-right: .45em;
+  --rim: inset 0 0 0 1px light-dark(color-mix(in srgb, var(--c, var(--grey)) 62%, black), transparent); box-shadow: var(--rim); } /* the rim keeps light dots at 3:1 on white */
+.swatch { display: inline-block; width: .9em; height: .9em; border-radius: 3px; background: var(--c); border: 1px solid var(--muted); vertical-align: -.1em; margin-right: .45em; } /* a color sample, not a state */
+/* status: a glyph plus color, never color alone; aria-label carries the word */
+.st { display: inline-block; width: 1.2em; text-align: center; color: var(--c-text); }
+.ok { --c: var(--green); } .bad { --c: var(--red); } .pend { --c: var(--yellow); } .run { --c: var(--blue); } .off { --c: var(--grey); } /* ok, failing, waiting, in progress, inactive */
+.dot.bad:not(.still) { animation: pulse 2s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: var(--rim), 0 0 0 0 color-mix(in srgb, var(--c) 55%, transparent); } 70%, 100% { box-shadow: var(--rim), 0 0 0 .45em transparent; } }
+
+/* ---- tables, lists, pager, tabs ------------------------------------------------------------ */
+table { width: 100%; border-collapse: collapse; margin: 1.2rem 0 0; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td { overflow-wrap: anywhere; } /* long names, emails and ids wrap instead of widening the table */
+th { font-weight: normal; color: var(--muted); font-size: .9em; white-space: nowrap; }
+/* sortable columns: the header is a link with ?sort=…&dir=…; the current one has aria-sort and an arrow */
+th a { text-decoration: none; } th a:hover { color: var(--fg); }
+th[aria-sort] { color: var(--fg); }
+th[aria-sort=ascending] a::after { content: " ↑"; } th[aria-sort=descending] a::after { content: " ↓"; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+tr.sel td { background: var(--sel); }
+tr[data-href] { cursor: pointer; }
+tbody tr[data-href]:hover td { background: color-mix(in srgb, var(--sel) 50%, transparent); }
+tfoot td { border-bottom: 0; color: var(--muted); }
+.over { --c: var(--red); color: var(--c-text); } /* overdue, failing */
+/* money: <data class="money" value="124000">1.240,00 €</data> (value in cents); tabular digits, never wrapped, a real minus sign */
+.money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* sign: an explicit +amount is green, −amount red; an amount without a sign stays neutral (a price, a total, a balance) */
+.money.pos { --c: var(--green); color: var(--c-text); }
+.money.neg { --c: var(--red); color: var(--c-text); }
+/* an input with a unit: <span class="affix"><input data-money="1.234,56" inputmode="decimal"><span>€</span></span> */
+.affix { position: relative; display: flex; }
+.affix input { flex: 1; text-align: right; padding-right: 2.2em; font-variant-numeric: tabular-nums; }
+.affix > span { position: absolute; right: .7em; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+/* ids: every object id has a type prefix (cus_, inv_, usr_ …), shown monospace and copyable */
+code.id { white-space: nowrap; }
+.bar { display: inline-block; height: .7em; background: var(--accent); border-radius: 1px; vertical-align: middle; }
+.pager { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; justify-content: space-between; margin-top: 1rem; color: var(--muted); }
+.pager a { text-decoration: none; }
+.pager .off { visibility: hidden; }
+/* bulk: a checkbox column (td.pick, inputs with form="bulk") and a bar with the count and the actions; ui.js hides the bar
+   while nothing is selected (without JS it is always there and still works) */
+th.pick, td.pick { width: 2rem; padding-right: 0; }
+tr:has(td.pick :checked) td { background: color-mix(in srgb, var(--accent) 5%, var(--bg)); }
+tr:has(td.pick :checked) td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.bulkbar { position: sticky; bottom: 1rem; z-index: 15; display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-top: 1rem; padding: .5rem .8rem;
+  background: var(--bg); border: 1px solid var(--accent); border-radius: var(--r-lg); box-shadow: 0 6px 24px rgb(0 0 0 / .12); }
+.bulkbar .n { margin-right: auto; }
+/* session: a bar on top before the sign-in ends and after it ended (ui.js, from data-session-end on <body>) */
+.session { position: sticky; top: 0; z-index: 60; display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: center; padding: .5rem 1rem; margin: 0 -16px .6rem;
+  --c: var(--yellow); background: color-mix(in srgb, var(--c) 18%, var(--bg)); border-bottom: 2px solid var(--c); }
+.session.ended { --c: var(--red); }
+/* error pages: the code small, the message as the title, what to do next as buttons */
+.error { margin-top: 3rem; max-width: 40rem; }
+.error .code { color: var(--muted); font-size: .9em; letter-spacing: .1em; }
+.error h1 { margin: .3rem 0 1rem; }
+.error .row { margin-top: 1.5rem; }
+/* uploads: a dashed zone (the label of a file input) and a plain upload button; ui.js adds .ready while files are dragged
+   over the window and .over over the zone */
+.drop { position: relative; display: grid; justify-items: center; gap: .35rem; padding: 1.4rem 1rem; border: 2px dashed var(--muted); border-radius: var(--r-lg); text-align: center; cursor: pointer; color: var(--muted); transition: border-color .15s, background-color .15s; }
+.drop > b, .drop > span { color: var(--fg); font-weight: normal; }
+.drop u { color: var(--accent); text-underline-offset: 3px; }
+.drop [class*="icon-"] { font-size: 1.6rem; }
+.drop:hover { border-color: var(--fg); }
+.drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.drop.ready { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--bg)); }
+.drop.over { border-style: solid; background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+.drop.over > :not(.hint-drop, .files) { opacity: .35; }
+.drop .hint-drop { color: var(--accent); font-weight: bold; }
+.drop:not(.over) .hint-drop { display: none; }
+.drop .files { list-style: none; margin: .4rem 0 0; padding: 0; justify-self: stretch; text-align: left; color: var(--fg); }
+.drop .files li { display: flex; gap: .5rem; align-items: center; padding: .15rem 0; overflow-wrap: anywhere; }
+label.btn:has(input[type=file]) { position: relative; }
+.drop input[type=file], label.btn input[type=file] { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+label.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.form .drop { grid-column: 2; } .form .drop + .err { grid-column: 2; }
+.empty { border: 1px dashed var(--line); border-radius: var(--r-lg); padding: 2rem; text-align: center; color: var(--muted); margin-top: 1.2rem; display: grid; gap: 1rem; justify-items: center; }
+.tabs { display: flex; flex-wrap: wrap; gap: 1.4rem; border-bottom: 1px solid var(--line); margin-top: 1.4rem; }
+.tabs a { padding-bottom: .5rem; color: var(--muted); text-decoration: none; }
+.tabs a.on { color: var(--fg); border-bottom: 2px solid var(--fg); }
+.filters { display: grid; grid-template-columns: max-content 1fr; gap: .55rem 1rem; align-items: baseline; margin-top: 1.1rem; }
+.filters .chips { margin-top: 0; }
+.filters .lab { color: var(--muted); font-size: .9em; }
+.cards { list-style: none; padding: 0; margin: 1.6rem 0 0; display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+.card { border: 1px solid var(--line); border-top: 3px solid var(--c, var(--line)); border-radius: var(--r-lg); padding: 1rem 1.2rem; }
+.card h2 { margin: 0; color: var(--fg); display: flex; align-items: center; }
+.card p { margin: .6rem 0 0; font-size: .9em; color: var(--muted); }
+
+/* ---- forms and detail ------------------------------------------------------------------------ */
+.form { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: .8rem 1.2rem; align-items: center; margin-top: 1.4rem; max-width: 46rem; }
+.form > label, .form > .lab { color: var(--muted); }
+.form > label:has(input[type=checkbox], input[type=radio]) { color: var(--fg); } /* a checkbox label is the value, not the field name */
+.form input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]), .form select { width: 100%; }
+.form > .full { grid-column: 1 / -1; }
+.form > h2.full { margin: 1rem 0 0; font-size: 1em; color: var(--fg); border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+.form .hint { grid-column: 2; margin-top: -.5rem; color: var(--muted); font-size: .82em; }
+.form [readonly], .form :disabled { background: var(--chip); color: var(--muted); cursor: not-allowed; }
+/* errors: the field turns red and a message with what is valid sits right under it (server and ui.js render the same markup) */
+.form [aria-invalid=true], .form :user-invalid { --c: var(--red); border-color: var(--c-text); box-shadow: 0 0 0 1px var(--c-text); }
+.form .err { grid-column: 2; margin-top: -.5rem; --c: var(--red); color: var(--c-text); font-size: .85em; }
+.form .err .valid::before { content: ": "; } /* one line: what is wrong: what is valid */
+/* saved: the field edge flashes green once and the form's .saved line says when; no toast */
+.form .was-saved { --c: var(--green); border-color: var(--c-text); transition: border-color 1.2s; }
+.saved { min-height: 1.4em; }
+.info { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: .6rem 1.2rem; margin-top: 1.4rem; align-content: start; }
+.info > span:nth-child(odd) { color: var(--muted); }
+.info .round { width: 1.5rem; height: 1.5rem; vertical-align: middle; margin: -.3rem 0; } /* inline copy button: keeps the line height */
+.audit { margin-top: 2rem; font-size: .85em; color: var(--muted); }
+.audit summary { cursor: pointer; }
+.audit li { margin: .2rem 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- dialogs, keys line, footer -------------------------------------------------------------- */
+dialog { color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: calc(var(--r-lg) + 2px); padding: 1.2rem 1.4rem; max-width: min(40rem, calc(100vw - 32px)); box-shadow: 0 10px 34px rgb(0 0 0 / .18); }
+dialog::backdrop { background: rgb(0 0 0 / .35); }
+dialog h2 { margin-top: 0; color: var(--fg); }
+dialog table td { padding: .25rem .6rem; }
+dialog[open] { animation: pop .15s ease-out; }
+@keyframes pop { from { opacity: 0; transform: scale(.97); } }
+.keys { margin-top: 1.8rem; font-size: .8rem; color: var(--muted); line-height: 2; }
+.foot { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
+.foot b { color: var(--fg); }
+/* standalone pages (login, public status): one centered column */
+body.center { max-width: 26rem; padding-top: 12vh; }
+body.center .logo { margin-bottom: 1.6rem; }
+body.center .form { grid-template-columns: 1fr; }
+body.center .form label { display: grid; gap: .3rem; color: var(--muted); }
+body.center h1 { display: flex; align-items: center; }
+
+/* ---- dates: native inputs only; color-scheme gives their pickers the right theme ------------------ */
+input[type=date], input[type=time], input[type=datetime-local], input[type=month], input[type=week] { font-variant-numeric: tabular-nums; }
+.range { display: inline-flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.range input { width: auto; }
+
+/* ---- calendar: week grid (.calwrap > .cal) and month grid (.month); behavior in calendar.js ---------- */
+.calhead { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: center; margin-top: 1.4rem; }
+.calhead .total { margin-left: auto; color: var(--muted); }
+.calwrap { --hour: 2.6rem; margin-top: 1rem; max-height: var(--calh, calc(var(--hour) * 11.5)); /* calendar.js sets --calh: the window below the grid */ overflow-y: auto; border-top: 1px solid var(--line); position: relative; }
+.cal { display: grid; grid-template-columns: 3.6rem repeat(7, minmax(0, 1fr)); font-size: .85em; }
+.cal .hd { position: sticky; top: 0; z-index: 3; background: var(--bg); padding: .4rem .5rem .5rem; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+.cal .hd b { display: block; font-weight: normal; }
+.cal .hd.today b { color: var(--accent); }
+.cal .hours div { height: var(--hour); color: var(--muted); font-size: .85em; text-align: right; padding-right: .5rem; transform: translateY(-.55em); }
+.cal .day { position: relative; border-left: 1px solid var(--line); height: calc(var(--hour) * 24); touch-action: pan-y;
+  background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--hour) - 1px), var(--line) calc(var(--hour) - 1px) var(--hour)); }
+.cal .day.closed { background-image: repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in srgb, var(--muted) 12%, transparent) 6px 8px),
+  repeating-linear-gradient(to bottom, transparent 0 calc(var(--hour) - 1px), var(--line) calc(var(--hour) - 1px) var(--hour)); }
+/* an entry: top/height in % of the day (minute / 14.4), --c its color */
+.ev { position: absolute; left: 3px; right: 3px; border-radius: var(--r); padding: .15rem .4rem; font-size: .92em; line-height: 1.3; overflow: hidden; text-decoration: none;
+  border-left: 3px solid var(--c, var(--accent)); background: color-mix(in srgb, var(--c, var(--accent)) 12%, var(--bg)); cursor: grab; user-select: none; display: block; }
+.ev[data-ro] { cursor: pointer; }
+.ev small { display: block; } /* full text color: muted on the tinted box would fall below 4.5:1 */
+.ev .tag, .ev .muted { color: inherit; font-size: .9em; }
+.ev.sel { box-shadow: 0 0 0 2px var(--accent); z-index: 2; }
+.ev.draw { border: 1px dashed var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); z-index: 2; pointer-events: none; }
+.ev .grip { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
+.ev.running { border-bottom: 2px dashed var(--c, var(--accent)); }
+.now { position: absolute; left: 0; right: 0; border-top: 2px solid var(--red); z-index: 1; pointer-events: none; }
+.now::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+.dayhead { display: none; }
+.month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: 1.2rem; border-top: 1px solid var(--line); border-left: 1px solid var(--line); font-size: .85em; }
+.month .wd { padding: .3rem .5rem; color: var(--muted); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.month a.c { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-height: 5rem; padding: .4rem .5rem; display: grid; align-content: start; gap: .35rem; text-decoration: none; }
+.month .c.out { color: var(--muted); }
+.month .c.today b { color: var(--accent); }
+.month .c.closed { background: repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in srgb, var(--muted) 12%, transparent) 6px 8px); }
+.month .c.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.stack { display: flex; height: .45rem; border-radius: 2px; overflow: hidden; }
+.stack i { display: block; background: var(--c); box-shadow: inset 0 0 0 1px light-dark(color-mix(in srgb, var(--c) 62%, black), transparent); } /* rim: light colors stay visible on light paper */
+
+/* ---- dashboard: stat tiles, ranked bars, meter, charts (chart.go draws the SVG) --------------------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+.tile { border: 1px solid var(--line); border-radius: var(--r-lg); padding: .8rem 1rem; display: flex; flex-direction: column; gap: .15rem; text-decoration: none; min-width: 0; }
+.tile > .spark, .tile > .meter { margin-top: auto; } /* trend at the bottom of every tile, values on one line */
+.tile .cap { display: flex; justify-content: space-between; color: var(--muted); font-size: .75em; }
+a.tile:hover { border-color: var(--muted); }
+.tile .label { color: var(--muted); font-size: .9em; }
+.tile .value { font-size: 1.6rem; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .delta { font-size: .85em; color: var(--c-text); } /* --c: green when the change is good, red when bad, grey when neutral */
+.spark { width: 100%; height: 2.2rem; margin-top: .5rem; overflow: visible; display: block; }
+.spark polyline { fill: none; stroke: var(--grey); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.spark .now { stroke: var(--accent); stroke-width: 2; }
+.spark .area { fill: color-mix(in srgb, var(--grey) 14%, transparent); }
+/* ranked parts: one hue, largest first, label · bar · value */
+.bars { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; grid-template-columns: minmax(0, 10rem) 1fr auto; gap: .5rem .8rem; align-items: center; }
+.bars li { display: contents; }
+.bars .b { height: .6rem; width: var(--v); min-width: 2px; background: var(--accent); border-radius: 0 4px 4px 0; }
+.bars .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.bars li > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* progress of a task: <label class="progress"><span>what runs</span><span class="pct">26 %</span><progress value max></progress></label>;
+   without value it is busy with unknown length. Segmented like a terminal bar, a sheen runs over the done part. */
+.progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .3rem .8rem; margin-top: .9rem; align-items: baseline; }
+.progress > progress, .progress > small { grid-column: 1 / -1; }
+.progress .pct { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: bold; }
+.progress small { color: var(--muted); }
+progress { appearance: none; display: block; width: 100%; height: .7rem; border: 0; border-radius: 2px; overflow: hidden; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+  mask: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 9px); } /* blocks with gaps: ▮▮▮▮▯▯ */
+progress::-webkit-progress-bar { background: transparent; }
+progress::-webkit-progress-value { transition: width .4s;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / .45) 45%, transparent 60%) 0 0 / 300% 100%, var(--accent); animation: sheen 2.4s linear infinite; }
+progress::-moz-progress-bar { background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / .45) 45%, transparent 60%) 0 0 / 300% 100%, var(--accent); animation: sheen 2.4s linear infinite; }
+progress[value="100"]::-webkit-progress-value, progress:not([value])::-webkit-progress-value { animation: none; }
+@keyframes sheen { from { background-position: 100% 0, 0 0; } to { background-position: -50% 0, 0 0; } }
+progress:indeterminate { background: linear-gradient(90deg, transparent 0 35%, var(--accent) 35% 65%, transparent 65%) 0 0 / 250% 100%, color-mix(in srgb, var(--accent) 16%, var(--bg));
+  animation: busy 1.4s steps(18) infinite; } /* steps: the block moves segment by segment */
+progress:indeterminate::-webkit-progress-bar { background: transparent; }
+progress:indeterminate::-moz-progress-bar { background: transparent; }
+@keyframes busy { from { background-position: 100% 0, 0 0; } to { background-position: -40% 0, 0 0; } }
+/* one ratio against a limit: <span class="meter" role="meter" aria-valuenow="72" …><i style="--v:72%"></i></span> */
+.meter { display: block; height: .5rem; border-radius: 999px; background: color-mix(in srgb, var(--c, var(--accent)) 20%, var(--bg)); overflow: hidden; margin-top: .4rem; }
+.meter i { display: block; height: 100%; width: var(--v); background: var(--c, var(--accent)); border-radius: 999px; }
+.chart { margin: 1rem 0 0; }
+.chart svg { max-width: 100%; height: auto; display: block; overflow: visible; } /* natural size (width/height attributes), only ever shrinks */
+.chart .base { stroke: var(--line); }
+.chart text { fill: var(--muted); font: .7rem var(--mono); }
+.chart text.val { fill: var(--fg); }
+.chart .col path { fill: var(--grey); }
+.chart .col.cur path { fill: var(--accent); }
+.chart .hit { fill: transparent; }
+.chart .col:is(:hover, :focus-visible) path { fill: var(--accent); }
+.chart .col:focus-visible { outline: none; }
+.chart details { margin-top: .4rem; font-size: .85em; color: var(--muted); }
+.tip { position: fixed; z-index: 90; pointer-events: none; background: var(--fg); color: var(--bg); padding: .2rem .5rem; border-radius: var(--r); font-size: .85em; white-space: nowrap; }
+.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr)); gap: 0 2rem; }
+
+/* gallery: sections with a table of contents */
+.toc { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.gallery > section { border-top: 1px solid var(--line); margin-top: 2.4rem; padding-top: .4rem; }
+.gallery > section > h2 { color: var(--fg); font-size: 1.05rem; }
+.gallery h3 { font-size: .95em; font-weight: normal; color: var(--muted); margin: 1.6rem 0 .5rem; }
+.gallery h3 + p { margin-top: 0; }
+/* icon page */
+.iconset { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .4rem; }
+.iconset li { display: flex; gap: .6rem; align-items: center; padding: .4rem .5rem; border: 1px solid var(--line); border-radius: var(--r); }
+.iconset li > i { font-size: 1.25rem; }
+.iconrows p { display: flex; flex-wrap: wrap; gap: .55em; align-items: center; margin: .6rem 0; }
+.iconrows .lab { width: 5.5rem; color: var(--muted); flex: none; }
+.tint { color: var(--c-text); }
+
+/* ---- command palette (ui.js builds it: Ctrl+K or :) ------------------------------------------------ */
+dialog.palette { padding: 0; width: min(36rem, calc(100vw - 32px)); margin-top: 12vh; overflow: hidden; }
+dialog.palette .prompt { position: relative; display: block; }
+dialog.palette .prompt::before { content: ">_"; position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--accent); font-weight: bold; pointer-events: none; }
+dialog.palette input { width: 100%; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: .8rem 1rem .8rem 2.8rem; font-size: 1.05em; box-shadow: none; caret-color: var(--accent); }
+dialog.palette ul { list-style: none; margin: 0; padding: .4rem 0; max-height: 50vh; overflow: auto; }
+dialog.palette li { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 1rem; cursor: pointer; }
+dialog.palette li.sel { background: var(--sel); }
+dialog.palette li .sub { color: var(--muted); font-size: .85em; white-space: nowrap; }
+dialog.palette li mark { background: none; color: var(--accent); font-weight: bold; }
+dialog.palette .none { padding: .35rem 1rem; color: var(--muted); }
+
+/* ---- graphite (no data-design needed): pencil on drafting paper; dense lists, calm warm tones, a clear hierarchy, surfaces only where they group ---- */
+body { padding: 1.5rem 20px 2.5rem; line-height: 1.65; }
+main h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -.01em; }
+main h2:not(dialog h2, .card h2) { font-size: .75rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 2.4rem; }
+/* surfaces only where grouping helps; tables stay flat */
+:is(.tile, .card, .chart, .bars, details.audit, .panel, dialog) { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); }
+:is(.chart, .bars, .panel) { padding: 1rem 1.2rem; }
+details.audit { padding: .6rem 1rem; }
+.empty, .drop { background: var(--surface); }
+:is(input, select, textarea, button:not(.round), .btn) { background-color: var(--surface); }
+/* one unmistakable action: the primary button is filled */
+:is(button, .btn).pri { background: var(--accent); color: light-dark(#fff, #0f1115); border-color: var(--accent); box-shadow: none; }
+:is(button, .btn).pri:hover { background: color-mix(in srgb, var(--accent) 85%, var(--fg)); border-color: transparent; }
+:is(button, .btn).pri kbd { color: inherit; border-color: currentColor; opacity: .75; }
+
+/* ---- paper: a form on paper, filled in and drawn by hand, tidy: pen strokes instead of printed rules (a gently wobbling
+   line, drawn in the text color), outlines with uneven corners, green-bar rows, a highlighter, chips circled with the pen ---- */
+[data-design="paper"] { --pen: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='6'><path d='M0 3C30 1.6 60 4.4 90 3.2S150 1.4 180 3.1 225 4.2 240 3' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round'/></svg>"); }
+[data-design="paper"] :is(header.app, main h2:not(dialog h2, .card h2), .foot) { position: relative; border: 0; }
+[data-design="paper"] :is(header.app, main h2:not(dialog h2, .card h2))::after, [data-design="paper"] .foot::before {
+  content: ""; position: absolute; left: 0; right: 0; height: 6px; background: var(--fg); mask: var(--pen) 0 0 / 240px 6px repeat-x; pointer-events: none; }
+[data-design="paper"] header.app::after, [data-design="paper"] main h2:not(dialog h2, .card h2)::after { bottom: -3px; }
+[data-design="paper"] .foot::before { top: -3px; }
+[data-design="paper"] main h2:not(dialog h2, .card h2) { color: var(--fg); font-weight: normal; font-size: .85rem; letter-spacing: .1em; padding-bottom: .35rem; }
+[data-design="paper"] nav.app a.on { border: 0; color: var(--fg);
+  background: linear-gradient(transparent 52%, color-mix(in srgb, var(--accent) 24%, transparent) 52% 88%, transparent 88%) no-repeat; } /* highlighter stroke */
+[data-design="paper"] main h1 { font-weight: normal; text-transform: uppercase; letter-spacing: .06em; position: relative; display: inline-block; padding-bottom: .3rem; }
+[data-design="paper"] main h1::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 6px; background: var(--accent); mask: var(--pen) 0 0 / 240px 6px repeat-x; } /* one pen stroke under the title */
+[data-design="paper"] main a:not(.btn, .chip, .tag, .up, nav a, .tile, .c) { text-decoration-thickness: 1px; text-decoration-color: color-mix(in srgb, currentColor 55%, transparent); text-underline-offset: 3px; }
+[data-design="paper"] th { color: var(--fg); text-transform: uppercase; font-size: .78em; letter-spacing: .08em; border-bottom: 1.5px solid var(--fg); }
+[data-design="paper"] td { border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent); }
+[data-design="paper"] tbody tr:nth-child(even) td { background: var(--bar); }
+[data-design="paper"] tbody tr.sel td { background: linear-gradient(transparent 12%, color-mix(in srgb, var(--accent) 16%, transparent) 12% 88%, transparent 88%), var(--bg); } /* highlighted line */
+/* outlines drawn by hand: uneven corners, alternating so nothing looks stamped */
+[data-design="paper"] :where(button:not(.round), .btn, summary.btn, input:not([type=checkbox]):not([type=radio]):not([type=color]), select, textarea, .seg, .chip) { /* :where: selected, hover and focus states win */
+  border: 1.25px solid color-mix(in srgb, var(--fg) 60%, var(--bg)); border-radius: var(--sketch-sm); background-color: transparent; box-shadow: none; }
+[data-design="paper"] :where(button:not(.round), .btn, summary.btn, .chip):nth-child(even) { border-radius: 5px 13px 4px 14px / 13px 4px 12px 5px; }
+[data-design="paper"] :is(button:not(.round), .btn, summary.btn) { padding: .25rem .85rem; color: var(--fg); }
+[data-design="paper"] :is(button:not(.round), .btn):hover { background-color: color-mix(in srgb, var(--accent) 8%, transparent); transform: rotate(-.6deg); }
+[data-design="paper"] :is(button, .btn).pri { color: var(--accent); background: transparent; border: 1.75px solid var(--accent); font-weight: bold; } /* an outline in pen blue, not graphite's filled button */
+[data-design="paper"] :is(button, .btn).pri:hover { background-color: color-mix(in srgb, var(--accent) 12%, transparent); }
+[data-design="paper"] :is(button, .btn).pri kbd { color: inherit; opacity: 1; }
+[data-design="paper"] :is(button, .btn):is(.danger, .del) { color: var(--c-text); border-color: var(--c-text); }
+[data-design="paper"] :is(input, select, textarea):focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+[data-design="paper"] .gsearch input { background: var(--chip); border-color: transparent; }
+[data-design="paper"] .chip.on { border: 1.75px solid var(--accent); }
+[data-design="paper"] :is(.card, .tile, .empty, .drop, dialog, .bulkbar, .chart, .bars, details.audit, .panel) {
+  border: 1.25px solid color-mix(in srgb, var(--fg) 45%, var(--bg)); border-radius: var(--sketch); box-shadow: none; background: var(--bg); }
+[data-design="paper"] :is(.tile, .card):nth-child(even) { border-radius: 14px 225px 14px 255px / 255px 14px 225px 14px; }
+[data-design="paper"] :is(.empty, .drop) { border-style: dashed; }
+[data-design="paper"] .tag:not([style*="--c"]) { color: var(--accent); }
+[data-design="paper"] :is(.flash, .warn, .banner) { border-radius: var(--sketch-sm); }
+
+/* ---- small screens, touch, motion ------------------------------------------------------------ */
+@media (hover: none) { kbd, .keys { display: none; } }
+@media (max-width: 40rem) {
+  body { padding: .6rem 16px 2rem; }
+  header.app { gap: .6rem; }
+  header.app .right .who, header.app .logo .name, nav.app .g { display: none; }
+  #menu { display: inline; }
+  nav.app { display: none; }
+  /* burger menu: ☰ opens the nav as a vertical list with full-width rows */
+  nav.app.open { display: flex; flex-direction: column; gap: 0; padding: .3rem 0; border-bottom: 1px solid var(--line); }
+  nav.app.open a { padding: .65rem .2rem; border-bottom: 0; }
+  nav.app.open a.on { border-bottom: 0; border-left: 2px solid var(--fg); padding-left: .8rem; }
+  .gsearch { order: 3; flex-basis: 100%; max-width: none; }
+  .hide-phone { display: none !important; }
+  /* week becomes a day view: only the .cur day; h/l, swipe or the arrows switch it */
+  .cal { grid-template-columns: 3.2rem minmax(0, 1fr); }
+  .cal .hd:not(.cur):not(.corner), .cal .day:not(.cur) { display: none; }
+  .dayhead { display: flex; gap: 1rem; align-items: center; margin-top: .8rem; }
+  .calhead .wk { display: none; }
+  .calhead .total { flex-basis: 100%; margin-left: 0; }
+  .month a.c { min-height: 3.2rem; padding: .3rem; }
+  .month .c small { display: none; }
+  .form, .filters { grid-template-columns: 1fr; }
+  .form .hint, .form .err, .form .drop, .form .drop + .err { grid-column: 1; }
+  /* phones: create, edit, delete and copy buttons show only their icon; the text stays for screen readers (font-size 0, icon sized in rem) */
+  :is(button, .btn):is(.new, .edit, .del, .copy):not(.round):not(dialog *) { font-size: 0; padding: .35rem .6rem; line-height: 0; }
+  :is(button, .btn):is(.new, .edit, .del, .copy):not(.round):not(dialog *)::before { width: 1.05rem; height: 1.05rem; margin: 0; vertical-align: middle; }
+  header.app .prefs { display: none; } /* language and theme live on the settings page on phones */
+  .crumbs li:not(:nth-last-child(2)) { display: none; } .crumbs li + li::before { content: none; } .crumbs a::before { content: "← "; }
+  details.more .menu { position: fixed; left: 16px; right: 16px; bottom: 16px; min-width: 0; z-index: 40; } /* bottom sheet */
+  /* tables become one card per row, one line per column: "label … value" (labels from the header, set by ui.js); .keep opts out */
+  main table:not(.keep), main table:not(.keep) :is(tbody, tfoot, tr) { display: block; }
+  main table:not(.keep) thead { display: none; }
+  main table:not(.keep) tr { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: .45rem .8rem; margin-bottom: .6rem; }
+  main table:not(.keep) tfoot tr { border-style: dashed; }
+  /* a label column of 7rem: text values align left and wrap under themselves, numbers align right */
+  main table:not(.keep) td { display: block; border: 0; padding: .2rem 0 .2rem 7.5rem; text-align: left; overflow-wrap: anywhere; }
+  main table:not(.keep) td.num { text-align: right; }
+  main table:not(.keep) td.hide-phone { display: block !important; }
+  main table:not(.keep) td::before { content: attr(data-label); float: left; width: 7rem; margin-left: -7.5rem; color: var(--muted); text-align: left; overflow-wrap: normal; }
+  main table:not(.keep) :is(td:first-child[data-label=""], td.pick + td[data-label=""]) + td { padding-left: 0; padding-right: 2rem; font-weight: bold; } /* after the state column: the row's title */
+  main table:not(.keep) :is(td:first-child[data-label=""], td.pick + td[data-label=""]) + td::before { content: none; }
+  main table:not(.keep) td:empty { display: none !important; }
+  main table:not(.keep) td:first-child[data-label=""], main table:not(.keep) td.pick + td[data-label=""] { float: left; padding: .2rem .5rem 0 0; }
+  main table:not(.keep) tr:has(td.pick) { position: relative; }
+  main table:not(.keep) td.pick { position: absolute; right: .6rem; top: .35rem; width: auto; padding: 0; box-shadow: none !important; } /* the checkbox sits top right of the card */
+  main table:not(.keep) tr:has(td.pick :checked) { border-color: var(--accent); }
+  main table:not(.keep) td[data-label=""]:not(:first-child) { padding-left: 0; }
+  main table:not(.keep) td[data-label=""]::before { content: none; } /* unlabeled state column sits before the first line */
+  main table:not(.keep) tr.sel { background: var(--sel); }
+  main table:not(.keep) tr.sel td { background: none; }
+  .toasts { left: 16px; right: 16px; width: auto; }
+  th, td { padding: .5rem .4rem; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after, ::backdrop { animation: none !important; transition: none !important; } }

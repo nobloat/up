@@ -1,7 +1,8 @@
 IMAGE ?= ghcr.io/nobloat/up
 TAG ?= $(or $(shell git describe --tags --exact-match 2>/dev/null),main)
+UI ?= ../ui
 
-.PHONY: build test run mailpit package push screenshots clean
+.PHONY: build test run mailpit package push screenshots ui clean
 
 build:
 	CGO_ENABLED=0 go build -tags timetzdata -trimpath -ldflags="-s -w -X main.release=$(TAG)" -o up .
@@ -22,6 +23,11 @@ package:
 
 push: package
 	docker push $(IMAGE):$(TAG)
+
+ui: # the shared look from nobloat/ui (../ui), copied unchanged; app styles live in web/static/app.css, app code in app.js
+	cp $(UI)/ui.css $(UI)/ui.js web/static/
+	cp $(UI)/partials.html web/
+	cp $(UI)/i18n/en.json $(UI)/i18n/de.json i18n/ui/
 
 screenshots:
 	./screenshots.sh
