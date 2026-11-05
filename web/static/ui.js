@@ -46,6 +46,16 @@ document.addEventListener('submit', async e => {
   if (b) b.onclick = () => set(({'': 'light', light: 'dark', dark: ''})[root.dataset.theme || '']);
   radios.forEach(r => r.onchange = () => set(r.value));
   show();
+  // design: graphite or paper, the user's choice over the app's Brand.Design; stored like the theme, applied in <head>
+  const designs = document.querySelectorAll('input[name=nb-design]');
+  const showDesign = () => designs.forEach(r => r.checked = r.value === (root.dataset.design || 'graphite'));
+  window.setDesign = d => {
+    d === 'paper' ? root.dataset.design = d : delete root.dataset.design;
+    try { localStorage.setItem('design', d); } catch {}
+    showDesign();
+  };
+  designs.forEach(r => r.onchange = () => setDesign(r.value));
+  showDesign();
   const m = $('#menu'), nav = $('#nav');
   if (m && nav) m.onclick = () => { const open = nav.classList.toggle('open'); m.setAttribute('aria-expanded', open); m.innerHTML = `<i class="icon-${open ? 'x' : 'menu'}" aria-hidden="true"></i>`; };
   // nav shortcut letters: underline the first matching letter of each label
@@ -387,6 +397,7 @@ labelTables();
     document.querySelectorAll('header.app .right a[aria-label]').forEach(a => c.push({label: a.getAttribute('aria-label'), sub: '', run: () => location = a.href})); // settings, logout
     document.querySelectorAll('main [data-key]').forEach(el => { if (el.offsetParent !== null) c.push({label: text(el) || el.getAttribute('aria-label') || el.title, sub: el.dataset.key, run: () => el.click()}); });
     if ($('#theme')) c.push({label: T['palette.theme'] || 'switch theme', sub: '◐', run: () => $('#theme').click()});
+    c.push({label: T['palette.design'] || 'switch design', sub: 'graphite · paper', run: () => setDesign(document.documentElement.dataset.design === 'paper' ? 'graphite' : 'paper')});
     if ($('#help')) c.push({label: T['palette.help'] || 'keyboard shortcuts', sub: '?', run: () => $('#help').showModal()});
     return c.concat(window.commands || []).filter(x => x.label);
   };

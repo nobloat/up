@@ -25,7 +25,7 @@ The page value (dot) needs:
 <link rel="icon" href="{{or .Brand.Icon "/static/favicon.svg"}}">
 <link rel="stylesheet" href="/static/ui.css">
 {{with .Brand.Color}}<style>:root { --brand: {{.}};{{with $.Brand.ColorDark}} --brand-dark: {{.}};{{end}} }</style>{{end}}
-<script>try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+<script>try { const r = document.documentElement, t = localStorage.getItem('theme'), d = localStorage.getItem('design'); if (t) r.dataset.theme = t; if (d === 'paper') r.dataset.design = d; else if (d) delete r.dataset.design; } catch {}</script>
 {{block "head" .}}{{end}}
 </head>{{end}}
 
@@ -38,9 +38,10 @@ The page value (dot) needs:
 {{define "nb-langtheme"}}<span class="prefs"><span><a href="/lang/de?rd={{.Here}}"{{if eq .Lang "de"}} class="on" aria-current="true"{{end}}>de</a> · <a href="/lang/en?rd={{.Here}}"{{if eq .Lang "en"}} class="on" aria-current="true"{{end}}>en</a></span>
 <button type="button" id="theme" class="round" hidden><i class="icon-contrast" aria-hidden="true"></i></button></span>{{end}}
 
-{{/* language and theme as settings rows; on phones the header hides them, so the settings page must include this */}}
+{{/* language, theme and design as settings rows; on phones the header hides them, so the settings page must include this */}}
 {{define "nb-prefs"}}<span class="lab">{{.T "prefs.lang"}}</span><span class="seg"><a href="/lang/de?rd={{.Here}}"{{if eq .Lang "de"}} class="on" aria-current="true"{{end}}>deutsch</a><a href="/lang/en?rd={{.Here}}"{{if eq .Lang "en"}} class="on" aria-current="true"{{end}}>english</a></span>
-<span class="lab">{{.T "prefs.theme"}}</span><span class="seg" id="theme-seg"><label><input type="radio" name="nb-theme" value="" checked>{{.T "js.theme.auto"}}</label><label><input type="radio" name="nb-theme" value="light">{{.T "js.theme.light"}}</label><label><input type="radio" name="nb-theme" value="dark">{{.T "js.theme.dark"}}</label></span>{{end}}
+<span class="lab">{{.T "prefs.theme"}}</span><span class="seg" id="theme-seg"><label><input type="radio" name="nb-theme" value="" checked>{{.T "js.theme.auto"}}</label><label><input type="radio" name="nb-theme" value="light">{{.T "js.theme.light"}}</label><label><input type="radio" name="nb-theme" value="dark">{{.T "js.theme.dark"}}</label></span>
+<span class="lab">{{.T "prefs.design"}}</span><span class="seg" id="design-seg"><label><input type="radio" name="nb-design" value="graphite"{{if ne .Brand.Design "paper"}} checked{{end}}>graphite</label><label><input type="radio" name="nb-design" value="paper"{{if eq .Brand.Design "paper"}} checked{{end}}>paper</label></span>{{end}}
 
 {{define "nb-crumbs"}}{{with .Crumbs}}<nav class="crumbs" aria-label="{{$.T "nav.crumbs"}}"><ol>{{range .}}<li>{{if .Href}}<a class="up" href="{{.Href}}">{{.Label}}</a>{{else}}<span aria-current="page">{{.Label}}</span>{{end}}</li>{{end}}</ol></nav>{{end}}{{end}}
 
