@@ -21,6 +21,7 @@
  "js.invalid": "not valid",
  "js.money.hint": "an amount like",
  "js.required": "required",
+ "js.remove": "remove",
  "js.saved": "saved",
  "js.saving": "saving…",
  "js.selected": "{n} selected",

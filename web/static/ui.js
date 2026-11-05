@@ -90,55 +90,108 @@ document.addEventListener('submit', async e => {
   }
 }
 
-// multi-value autocomplete (tags): <input data-pick="tags"> + <datalist id="tags"><option value="#name" label="Label">.
-// Space-separated tokens; name and label match anywhere, prefix matches first, used tokens are left out;
-// ↑/↓ choose, Tab/Enter pick, Esc closes. Single values need no JS: <input list="tags"> is native.
+// multi-value picker (tags, people): <input name="tags" data-pick="tags" value="#bug #ui"> + <datalist id="tags"><option value="#name" label="Label">.
+// Without JS a space-separated text field. ui.js shows the values as pills with × in a box (span.picks[data-ui], before the input)
+// and a field for the next value; the input stays the form field, visually hidden, and fires input and change on every
+// add or remove (autosave). Suggestions match value and label anywhere, prefix first, used values left out. ↑/↓ choose,
+// Enter/Tab take the chosen one, Space/Enter/Tab/leaving take the typed text, Backspace in the empty field removes the
+// last pill, Esc closes. Readonly inputs stay text. Single values need no JS: <input list="tags"> is native.
 {
   let box;
   const close = () => { box?.remove(); box = null; };
-  const open = el => {
+  const vals = el => el.value.split(/\s+/).filter(Boolean);
+  const src = t => t.closest?.('.picks')?.nextElementSibling;
+  const set = (el, vs) => {
+    el.value = vs.join(' ');
+    draw(el);
+    for (const t of ['input', 'change']) el.dispatchEvent(new Event(t, {bubbles: true}));
+  };
+  const add = (el, v) => { if (v && !vals(el).some(x => x.toLowerCase() === v.toLowerCase())) set(el, [...vals(el), v]); };
+  // draw builds the pills from the input's value: on load and after morph, which leaves [data-ui] nodes alone
+  const draw = el => {
+    let p = el.previousElementSibling;
+    if (!p?.matches('.picks')) {
+      p = document.createElement('span');
+      p.className = 'picks'; p.dataset.ui = '';
+      const t = document.createElement('input');
+      t.autocomplete = 'off';
+      t.setAttribute('aria-label', el.labels?.[0]?.textContent.trim() || el.getAttribute('aria-label') || el.name);
+      if (el.placeholder) t.placeholder = el.placeholder;
+      p.append(t);
+      el.before(p);
+    }
+    el.classList.add('sr'); el.tabIndex = -1;
+    p.querySelectorAll('.pill').forEach(x => x.remove());
+    p.lastElementChild.insertAdjacentHTML('beforebegin', vals(el).map(v => `<span class="pill">${esc(v)}<button type="button" data-v="${esc(v)}" aria-label="${esc((T['js.remove'] || 'remove') + ' ' + v)}"><i class="icon-x" aria-hidden="true"></i></button></span>`).join(''));
+  };
+  window.picks = () => document.querySelectorAll('input[data-pick]:not([readonly])').forEach(draw);
+  window.picks();
+  const open = t => {
     close();
-    const m = el.value.slice(0, el.selectionStart).match(/(^|\s)(\S*)$/), q = m[2].toLowerCase();
-    const used = new Set(el.value.toLowerCase().split(/\s+/));
+    const el = src(t), q = t.value.trim().toLowerCase(), used = new Set(vals(el).map(v => v.toLowerCase()));
     const hits = [...document.querySelectorAll(`#${CSS.escape(el.dataset.pick)} option`)]
       .map(o => ({v: o.value, label: o.label || o.value, at: Math.min(...[o.value, o.label].map(s => s.toLowerCase().indexOf(q.replace(/^#/, ''))).filter(i => i >= 0))}))
-      .filter(t => t.at < Infinity && (!used.has(t.v.toLowerCase()) || t.v.toLowerCase() === q))
+      .filter(h => h.at < Infinity && !used.has(h.v.toLowerCase()))
       .sort((a, b) => (a.at > 1) - (b.at > 1) || a.v.localeCompare(b.v)).slice(0, 8);
     if (!hits.length) return;
     box = document.createElement('div');
     box.className = 'results pick';
-    box.innerHTML = hits.map(t => `<a href="#" data-v="${esc(t.v)}"><span>${esc(t.label)}</span><span class="sub">${t.label === t.v ? '' : esc(t.v)}</span></a>`).join('');
-    const r = el.getBoundingClientRect();
+    box.innerHTML = hits.map(h => `<a href="#" data-v="${esc(h.v)}"><span>${esc(h.label)}</span><span class="sub">${h.label === h.v ? '' : esc(h.v)}</span></a>`).join('');
+    const r = t.closest('.picks').getBoundingClientRect();
     box.style.cssText = `left:${r.left + scrollX}px;top:${r.bottom + scrollY + 2}px`;
-    if (q) box.firstChild.classList.add('sel'); // Enter picks only while typing a token
-    box.el = el;
+    if (q) box.firstChild.classList.add('sel'); // Enter picks only while typing
+    box.t = t;
     document.body.append(box);
-    const start = el.selectionStart - m[2].length;
-    const pick = v => {
-      const rest = el.value.slice(el.selectionStart).replace(/^\S*\s*/, '');
-      el.value = el.value.slice(0, start) + v + ' ' + rest;
-      el.setSelectionRange(start + v.length + 1, start + v.length + 1);
-      el.dispatchEvent(new Event('input', {bubbles: true}));
-    };
-    box.onmousedown = e => { e.preventDefault(); const a = e.target.closest('a'); if (a) pick(a.dataset.v); };
+    box.onmousedown = e => { e.preventDefault(); const a = e.target.closest('a'); if (a) take(t, a.dataset.v); };
   };
-  const ours = el => el.matches?.('input[data-pick]:not([readonly])');
+  const take = (t, v) => { t.value = ''; add(src(t), v.trim()); t.focus(); open(t); };
+  const drop = b => { const t = b.closest('.picks').lastElementChild; set(src(t), vals(src(t)).filter(v => v !== b.dataset.v)); t.focus(); };
+  const ours = t => t.matches?.('.picks > input');
   document.addEventListener('input', e => { if (ours(e.target)) open(e.target); });
-  document.addEventListener('focusin', e => { if (ours(e.target)) open(e.target); });
-  document.addEventListener('focusout', e => { if (ours(e.target)) setTimeout(() => { if (box?.el !== document.activeElement) close(); }, 150); });
+  document.addEventListener('change', e => { if (ours(e.target)) e.stopPropagation(); }); // the typing field is not a form field: no autosave
+  document.addEventListener('focusin', e => {
+    if (ours(e.target)) open(e.target);
+    else if (e.target.matches?.('input[data-pick].sr')) e.target.previousElementSibling.lastElementChild.focus(); // label click, data-key
+  });
+  document.addEventListener('focusout', e => {
+    const t = e.target;
+    if (!ours(t)) return;
+    setTimeout(() => { if (document.activeElement === t) return; if (box?.t === t) close(); if (t.value.trim()) { add(src(t), t.value.trim()); t.value = ''; } }, 150);
+  });
+  document.addEventListener('mousedown', e => { // a click in the box keeps the focus in the typing field; on × it removes the pill
+    const p = e.target.closest?.('.picks');
+    if (!p || e.target === p.lastElementChild) return;
+    e.preventDefault();
+    const b = e.target.closest('.pill button');
+    if (b) drop(b); else p.lastElementChild.focus();
+  });
+  document.addEventListener('click', e => { const b = e.target.closest?.('.pill button'); if (b && !e.detail) drop(b); }); // × by keyboard
   document.addEventListener('keydown', e => {
-    if (!box || e.target !== box.el) return;
-    const as = [...box.querySelectorAll('a')], i = as.findIndex(a => a.classList.contains('sel'));
-    if ((e.key === 'Tab' || e.key === 'Enter') && i >= 0) { e.preventDefault(); e.stopImmediatePropagation(); box.onmousedown({preventDefault() {}, target: as[i]}); }
-    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    const t = e.target;
+    if (!ours(t)) return;
+    const as = box?.t === t ? [...box.querySelectorAll('a')] : [], i = as.findIndex(a => a.classList.contains('sel'));
+    const typed = t.value.trim();
+    if ((e.key === 'Enter' || e.key === 'Tab') && i >= 0) { e.preventDefault(); e.stopImmediatePropagation(); take(t, as[i].dataset.v); }
+    else if ((e.key === 'Enter' || e.key === ' ' || (e.key === 'Tab' && !e.shiftKey)) && typed) { e.preventDefault(); e.stopImmediatePropagation(); take(t, typed); }
+    else if (e.key === 'Backspace' && !t.value && vals(src(t)).length) { e.preventDefault(); set(src(t), vals(src(t)).slice(0, -1)); open(t); }
+    else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && as.length) {
       e.preventDefault();
       const down = e.key === 'ArrowDown';
       as[i]?.classList.remove('sel');
       as[i < 0 ? (down ? 0 : as.length - 1) : (i + (down ? 1 : as.length - 1)) % as.length].classList.add('sel');
     }
-    else if (e.key === 'Escape') { e.stopImmediatePropagation(); close(); }
+    else if (e.key === 'Escape' && box) { e.stopImmediatePropagation(); close(); }
   }, true);
 }
+
+// custom color: in .swatches, <label style="--c:#…"><input type="radio" name="color" value="custom"></label><input type="color" name="custom">;
+// the server takes "custom" when that radio is checked. Picking a color checks it and paints its swatch (without JS: pick, then click it).
+document.addEventListener('input', e => {
+  const c = e.target;
+  if (!c.matches?.('.swatches input[type=color]')) return;
+  const r = c.closest('.swatches').querySelector('input[type=radio][value=custom]');
+  if (r) { r.checked = true; r.parentElement.style.setProperty('--c', c.value); }
+});
 
 // money: <input data-money="1.234,56"> takes both conventions (1.234,56 · 1,234.56 · 1234.5 · -12) and rewrites the value
 // in the format of the example before it is sent; nothing else is accepted. money.parse(s) → cents or NaN, money.format(cents, example).
@@ -452,7 +505,7 @@ document.addEventListener('click', async e => {
 document.querySelectorAll('.nojs').forEach(b => b.hidden = true);
 
 // morph patches a into b in place, so focus and caret survive a live re-render; unfocused inputs take the server value.
-// What the user opened or picked in the browser stays: details[open], the selected row (.sel), and the phone table labels.
+// What the user opened or picked in the browser stays: details[open], the selected row (.sel), the phone table labels and the pills.
 const patch = (a, b) => {
   if (a.nodeName !== b.nodeName) return a.replaceWith(b);
   if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
@@ -463,11 +516,11 @@ const patch = (a, b) => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a !== document.activeElement) {
     if (a.type === 'checkbox' || a.type === 'radio') a.checked = b.checked; else a.value = b.value;
   }
-  const ac = [...a.childNodes], bc = [...b.childNodes];
+  const ac = [...a.childNodes].filter(n => !n.hasAttribute?.('data-ui')), bc = [...b.childNodes]; // [data-ui]: added by ui.js, kept
   bc.forEach((n, i) => ac[i] ? patch(ac[i], n) : a.append(n));
   ac.slice(bc.length).forEach(n => n.remove());
 };
-window.morph = (a, b) => { patch(a, b); labelTables(); };
+window.morph = (a, b) => { patch(a, b); labelTables(); window.picks(); };
 
 // toasts: the page's flash messages float bottom right (full width on phones); successes fade after 5s, errors stay until closed.
 // Without JS they stay where the page put them.
