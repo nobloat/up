@@ -5,8 +5,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 chrome=$(command -v chromium || command -v chromium-browser || command -v google-chrome || true)
-mac="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-[ -n "$chrome" ] || { [ -x "$mac" ] && chrome=$mac; } || { echo "screenshots: chromium or google-chrome not found" >&2; exit 1; }
+mac="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" win="/c/Program Files/Google/Chrome/Application/chrome.exe"
+[ -n "$chrome" ] || { [ -x "$mac" ] && chrome=$mac; } || { [ -x "$win" ] && chrome=$win; } || { echo "screenshots: chromium or google-chrome not found" >&2; exit 1; }
 
 port=7496 out=screenshots tmp=$(mktemp -d)
 base="http://localhost:$port" self="http://127.0.0.1:$port"
@@ -29,17 +29,17 @@ CONF
 http() { # http <name> <tags> <path> <description> [extra line]
 	printf 'type = http\ntags = %s\ninterval = 1h\nurl = %s\ndescription = %s\n%s\n' "$2" "$self$3" "$4" "${5:-}" | conf "$1.monitor"
 }
-http website "public, prod" /static/style.css "Home page answers with 2xx"
+http website "public, prod" /static/ui.css "Home page answers with 2xx"
 http api "public, prod" /static/favicon.svg "Public API health endpoint"
 http shop "public, prod" /checkout "Checkout page answers with 2xx" "retry_count = 3"
-http docs public /static/style.css "Documentation site"
+http docs public /static/ui.css "Documentation site"
 http legacy-admin internal /legacy "Old admin backend, scheduled for removal"
 printf 'type = push\ntags = backup\ninterval = 24h\ntoken = screenshot-token-0001\ndescription = Nightly file backup reports in every 24h\n' | conf nightly-backup.monitor
 printf 'type = push\ntags = backup\ninterval = 24h\nretry_count = 2\ntoken = screenshot-token-0002\ndescription = Database dump reports in every 24h\n' | conf db-backup.monitor
 printf 'title = Example Status\ntag = public\n' | conf public.page
 "$tmp/up" -config "$cfg" >"$tmp/log" 2>&1 &
 pid=$!
-until curl -s -o /dev/null "$base/static/style.css"; do
+until curl -s -o /dev/null "$base/static/ui.css"; do
 	kill -0 "$pid" 2>/dev/null || { echo "screenshots: server died:" >&2; cat "$tmp/log" >&2; exit 1; }
 	sleep .1
 done
@@ -52,7 +52,7 @@ sleep 1
 
 # reduced motion: headless Chrome freezes CSS animations on their first frame
 # phone is 500px wide: headless Chrome never lays out narrower, a smaller window only crops a 500px page
-for page in list=/ red=/?state=red search=/?q=backup monitor=/monitor/shop paused=/monitor/docs status=/status/public; do
+for page in list=/ red=/?state=red search=/?q=backup monitor=/monitor/shop paused=/monitor/docs edit=/edit/monitor/shop pages=/pages settings=/settings status=/status/public; do
 	for size in desktop=1280,900 phone=500,900; do
 		for scheme in light=1 dark=0; do
 			"$chrome" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --run-all-compositor-stages-before-draw --force-prefers-reduced-motion \

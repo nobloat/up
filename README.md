@@ -17,7 +17,7 @@ A minimal alternative to [Uptime Kuma](https://github.com/louislam/uptime-kuma):
 | [Push monitors](#push-monitors) | dead man switch for cron jobs and backups; [Uptime Kuma](https://github.com/louislam/uptime-kuma) and [healthchecks.io](https://healthchecks.io/docs/http_api/) compatible URLs |
 | [Notifications](#notifiers) | Slack / Mattermost webhooks, mail, [ilert](https://www.ilert.com); reminders while red |
 | [Status pages](#status-pages) | public, per tag, custom templates |
-| Web UI | live updates, filters, search, keyboard shortcuts, pause with reason and end, create, edit and delete monitors and status pages (editors within their tags; the config directory must be writable, not `:ro`), dark mode, phone friendly, installable on the home screen |
+| Web UI | [nobloat/ui](https://github.com/nobloat/ui) look (graphite or paper), English and German, live updates, filters, search, keyboard shortcuts and command palette (`?`, `Ctrl+K`), pause with reason and end, create, edit and delete monitors and status pages (editors within their tags; the config directory must be writable, not `:ro`), dark mode, phone friendly, installable on the home screen |
 | Heartbeat | pings an external URL so something notices when `up` itself is down |
 
 **Not included:** editing notifiers and `up.conf` in the UI, graphs, user management (that is the IdP's job, see [single sign-on](#single-sign-on)).
@@ -110,6 +110,8 @@ heartbeat.urls = https://hc-ping.com/<uuid>
 | `role.viewer`, `role.editor`, `role.admin` | | IdP groups per role |
 | `access.<group>` | | tags whose monitors the group sees, `*` for all |
 | `logout_url`, `account_url` | | IdP links next to the signed-in user's name |
+| `design` | `graphite` | look of the UI: `graphite` or `paper` ([nobloat/ui](https://github.com/nobloat/ui)) |
+| `brand_color`, `brand_color_dark` | the design's | `#rrggbb` accent color; the dark one defaults to a lighter shade of `brand_color` |
 | `listen` | `:7493` | plain HTTP, put a TLS proxy in front |
 | `proxy` | | HTTP proxy for all checks and notifications |
 | `evaluation_interval` | `30s` | how often notifications are evaluated and batched |
@@ -243,4 +245,5 @@ make test
 make build
 make package
 make screenshots
+make ui           # copy ui.css, ui.js, partials.html and their texts from ../ui (nobloat/ui), unchanged
 ```
