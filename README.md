@@ -240,7 +240,7 @@ tag = public
 
 ```sh
 make run
-make mailpit
+make nomail
 make test
 make build
 make package
