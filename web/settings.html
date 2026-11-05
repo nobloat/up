@@ -1,0 +1,20 @@
+{{define "main"}}<div class="pagehead"><h1>{{.T "title.settings"}}</h1></div>
+<h2>{{.T "sec.account"}}</h2>
+<div class="info">
+<span>{{.T "acc.user"}}</span><span>{{.U.Name}}</span>
+<span>{{.T "acc.role"}}</span><span>{{.U.Role}}</span>
+<span>{{.T "acc.tags"}}</span><span>{{if .AnyTag}}{{.T "acc.tags.all"}}{{else}}{{range .AllowedTags}}<a class="tag" href="/?tag={{.}}">{{.}}</a>{{else}}{{.T "edit.tags.none"}}{{end}}{{end}}</span>
+<span>{{.T "acc.via"}}</span><span>{{if .U.SSO}}{{.T "acc.sso"}}{{else}}{{.T "acc.basic"}}{{end}}</span>
+</div>
+{{if and .U.SSO (or .AccountURL .LogoutURL)}}<div class="row account">{{with .AccountURL}}<a class="btn" href="{{.}}">{{$.T "acc.manage"}} <i class="icon-external" aria-hidden="true"></i></a>{{end}}{{with .LogoutURL}}<a class="btn" href="{{.}}"><i class="icon-power" aria-hidden="true"></i> {{$.T "nav.logout"}}</a>{{end}}</div>{{end}}
+
+<h2>{{.T "sec.prefs"}}</h2>
+<div class="form">
+{{template "nb-prefs" .}}
+<span class="lab">{{.T "prefs.notify"}}</span><span><button type="button" id="notify" aria-pressed="false" aria-describedby="notify-h"><i class="icon-bell" aria-hidden="true"></i> <span>{{.T "prefs.notify.off"}}</span></button></span>
+<span class="hint" id="notify-h">{{.T "prefs.notify.hint"}}</span>
+</div>
+{{if ge .U.Role 3}}
+<h2>{{.T "sec.backup"}}</h2>
+<p class="row"><a class="btn" href="/api/export" download><i class="icon-download" aria-hidden="true"></i> {{.T "backup.export"}}</a></p>
+<p class="muted"><small>{{.T "backup.hint"}}</small></p>{{end}}{{end}}

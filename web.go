@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"cmp"
 	"crypto/rand"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +22,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,13 +32,16 @@ var webFS embed.FS
 
 var (
 	staticFS, _ = fs.Sub(webFS, "web/static")
-	funcs       = template.FuncMap{"version": version, "favicon": favicon, "rel": rel, "linkify": linkify}
-	pages       = map[string]*template.Template{
-		"list":    template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/layout.html", "web/list.html", "web/footer.html")),
-		"monitor": template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/layout.html", "web/monitor.html", "web/footer.html")),
-		"edit":    template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/layout.html", "web/edit.html", "web/footer.html")),
-	}
-	statusTmpl = template.Must(template.New("status.html").Funcs(funcs).ParseFS(webFS, "web/status.html", "web/footer.html"))
+	funcs       = template.FuncMap{"rel": rel, "linkify": linkify, "st": stClass, "evicon": evIcon, "upper": strings.ToUpper, "tsf": func(t time.Time) string { return t.Local().Format("2006-01-02 15:04:05 MST") }}
+	// every page: nobloat/ui's partials first, then up's shared parts, then the page's "main"
+	pages = func() map[string]*template.Template {
+		out := map[string]*template.Template{}
+		for _, name := range []string{"list", "monitor", "edit", "pages", "settings", "error"} {
+			out[name] = template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/partials.html", "web/common.html", "web/"+name+".html"))
+		}
+		return out
+	}()
+	statusTmpl = template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/partials.html", "web/status.html"))
 )
 
 func (a *App) handler() http.Handler {
@@ -43,6 +49,8 @@ func (a *App) handler() http.Handler {
 	auth := func(h http.HandlerFunc) http.Handler { return a.auth(h) }
 	mux.Handle("GET /{$}", auth(a.ui))
 	mux.Handle("GET /monitor/{name}", auth(a.ui))
+	mux.Handle("GET /pages", auth(a.pagesList))
+	mux.Handle("GET /settings", auth(a.settings))
 	mux.Handle("GET /new", auth(a.editForm))
 	mux.Handle("GET /edit/{kind}/{name}", auth(a.editForm))
 	mux.Handle("POST /edit", auth(a.editSave))
@@ -57,8 +65,10 @@ func (a *App) handler() http.Handler {
 	mux.HandleFunc("/ping/{token}", a.handleHealthchecksPing)
 	mux.HandleFunc("/ping/{token}/{signal}", a.handleHealthchecksPing)
 	mux.HandleFunc("GET /status/{slug}", a.statusPage)
+	mux.HandleFunc("GET /lang/{l}", setLang)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
-	return http.NewCrossOriginProtection().Handler(mux)
+	mux.Handle("/", auth(func(w http.ResponseWriter, r *http.Request) { a.errPage(w, r, http.StatusNotFound, "") }))
+	return http.NewCrossOriginProtection().Handler(a.recoverer(mux))
 }
 
 // visible returns the monitor when u may see it, else nil.
@@ -224,7 +234,21 @@ func pauseEnd(d, t string) (time.Time, error) {
 	return time.Time{}, nil
 }
 
+// page is the value of every UI page: the fields nobloat/ui's partials.html needs (see its header), then up's own.
 type page struct {
+	Lang, Title, Here, Version string
+	Err, Notice                string // flash messages
+	Brand                      brand
+	Nav                        []navLink
+	Crumbs                     []crumb
+	Search, SearchAPI          string
+	User, UserURL              string
+	LogoutURL, SettingsURL     string
+	SessionEnd, SessionRenew   string
+	Texts                      map[string]string
+
+	U           *User
+	AccountURL  string
 	Red         int
 	Q, State    string
 	Tag         []string
@@ -234,6 +258,7 @@ type page struct {
 	Log         []row
 	Cfg         *MonitorConfig
 	StatusPages []*StatusPageConfig
+	PageRows    []pageRow
 	Overall     string
 	Total       int
 	States      []stateChip
@@ -243,13 +268,82 @@ type page struct {
 	EditName    string
 	EditPages   []*StatusPageConfig // status pages the user may edit
 	EditNew     bool
-	Conf, Err   string
+	Conf, Rev   string
+	ConfErr     string
 	Templates   []confTemplate
 	AllowedTags []string
 	AnyTag      bool // AllowedTags doesn't apply
-	User        *User
-	AccountURL  string
-	LogoutURL   string
+	Code        int  // error pages
+	ErrTitle    string
+	ErrText     string
+	Ref         string
+	S           *StatusPage
+}
+
+type brand struct{ App, Char, Name, Color, ColorDark, Logo, LogoDark, Icon, Design string }
+
+type navLink struct {
+	Href, Label, Key string
+	On               bool
+}
+
+type crumb struct{ Href, Label string }
+
+type pageRow struct {
+	*StatusPageConfig
+	State string
+	N     int
+	Edit  bool
+}
+
+func (p page) T(key string, args ...any) string { return T(p.Lang, key, args...) }
+
+// BaseTitle: the title without the failing count, which app.js keeps current.
+func (p page) BaseTitle() string { title, _, _ := strings.Cut(p.Title, " ("); return title }
+
+// D: a state light's class and word.
+func (p page) D(state string) light {
+	return light{stClass(state), p.T("state." + cmp.Or(state, "unknown"))}
+}
+
+type light struct{ Class, Label string }
+
+// stClass maps up's states to nobloat/ui's status classes.
+func stClass(state string) string {
+	return cmp.Or(map[string]string{green: "ok", yellow: "pend", red: "bad"}[state], "off")
+}
+
+func evIcon(event string) string {
+	return cmp.Or(map[string]string{"paused": "pause", "resumed": "play", "push": "arrow-up", "signal": "send", "check": "refresh", "start": "power", "stop": "x"}[event], "info")
+}
+
+// ID: the monitor's ticket key, MON-<NAME>.
+func (v monitorView) ID() string { return "MON-" + strings.ToUpper(v.Name) }
+
+// dress fills the fields of the shared layout; title is a text key, args fill it.
+func (a *App) dress(p *page, r *http.Request, here, title string, args ...any) {
+	cfg := a.cfg.Load()
+	p.Lang, p.Here, p.Version, p.Texts = langOf(r), here, version(), jsTexts(langOf(r))
+	p.Title = p.T(title, args...)
+	if p.Red > 0 {
+		p.Title += " (" + p.T("title.failing", p.Red) + ")"
+	}
+	p.Brand = brand{App: "up", Char: "•", Color: cfg.BrandColor, ColorDark: cfg.BrandColorDark, Icon: favicon(p.Overall)}
+	if cfg.Design == "paper" {
+		p.Brand.Design = "paper"
+	}
+	p.Search, p.SettingsURL, p.Q = "/", "/settings", cmp.Or(p.Q, r.FormValue("q"))
+	if p.U == nil {
+		p.U = userOf(r)
+	}
+	if p.U != nil && p.U.SSO {
+		p.User, p.UserURL, p.LogoutURL, p.AccountURL = p.U.Name, cfg.AccountURL, cfg.LogoutURL, cfg.AccountURL
+	}
+	pages := strings.HasPrefix(here, "/pages") || strings.HasPrefix(here, "/edit/page/") || strings.HasPrefix(here, "/new?kind=page")
+	p.Nav = []navLink{
+		{"/", p.T("nav.monitors"), "m", !pages && (here == "/" || strings.HasPrefix(here, "/?") || strings.HasPrefix(here, "/monitor/") || strings.HasPrefix(here, "/edit/") || strings.HasPrefix(here, "/new"))},
+		{"/pages", p.T("nav.pages"), "s", pages},
+	}
 }
 
 var urlRe = regexp.MustCompile(`https?://[^\s<>"']*[^\s<>"'.,:;!?)\]]`)
@@ -466,8 +560,7 @@ func (p page) Link(key, val string) string {
 
 func (a *App) page(u *User, q url.Values, vs []monitorView) page {
 	cfg := a.cfg.Load()
-	p := page{Q: q.Get("q"), State: q.Get("state"), Tag: q["tag"], StatusPages: cfg.StatusPages, Edit: u.Role >= editor,
-		User: u, AccountURL: cfg.AccountURL, LogoutURL: cfg.LogoutURL}
+	p := page{Q: q.Get("q"), State: q.Get("state"), Tag: q["tag"], StatusPages: cfg.StatusPages, Edit: u.Role >= editor, U: u}
 	tags := map[string]bool{}
 	p.Overall = worst(vs)
 	for _, v := range vs {
@@ -496,18 +589,36 @@ func (a *App) page(u *User, q url.Values, vs []monitorView) page {
 
 func render(w http.ResponseWriter, name string, p page) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := pages[name].ExecuteTemplate(w, "layout", p); err != nil {
+	if err := pages[name].ExecuteTemplate(w, "nb-layout", p); err != nil {
 		slog.Error("render", "page", name, "err", err)
 	}
 }
 
 func (a *App) ui(w http.ResponseWriter, r *http.Request) {
-	name, p := a.uiPage(userOf(r), r.URL.Path, r.URL.Query())
+	u := userOf(r)
+	if q := strings.ToLower(strings.TrimSpace(r.FormValue("q"))); r.URL.Path == "/" && strings.HasPrefix(q, "mon-") { // an exact id opens the monitor
+		if m := a.visible(u, strings.TrimPrefix(q, "mon-")); m != nil {
+			http.Redirect(w, r, "/monitor/"+m.name, http.StatusSeeOther)
+			return
+		}
+	}
+	name, p := a.uiPage(u, r.URL.Path, r.URL.Query())
 	if name == "" {
-		http.NotFound(w, r)
+		a.errPage(w, r, http.StatusNotFound, T(langOf(r), "kind.monitor")+" "+strings.TrimPrefix(r.URL.Path, "/monitor/"))
 		return
 	}
+	a.dressUI(&p, r, r.URL.RequestURI(), name)
 	render(w, name, p)
+}
+
+// dressUI: title and breadcrumbs of the list and the detail page.
+func (a *App) dressUI(p *page, r *http.Request, here, name string) {
+	if name == "list" {
+		a.dress(p, r, here, "title.monitors")
+		return
+	}
+	a.dress(p, r, here, "title.monitor", p.M.Name)
+	p.Crumbs = []crumb{{"/", p.T("nav.monitors")}, {"", p.M.Name}}
 }
 
 func (a *App) uiPage(u *User, path string, q url.Values) (name string, p page) {
@@ -533,6 +644,81 @@ func (a *App) uiPage(u *User, path string, q url.Values) (name string, p page) {
 	return "monitor", p
 }
 
+func (a *App) pagesList(w http.ResponseWriter, r *http.Request) {
+	u := userOf(r)
+	p := a.page(u, nil, a.views(u, nil, "", "", "", false))
+	for _, sp := range p.StatusPages {
+		vs := a.views(nil, []string{sp.Tag}, "", "", "", false)
+		p.PageRows = append(p.PageRows, pageRow{sp, worst(vs), len(vs), slices.Contains(p.EditPages, sp)})
+	}
+	a.dress(&p, r, r.URL.RequestURI(), "title.pages")
+	render(w, "pages", p)
+}
+
+func (a *App) settings(w http.ResponseWriter, r *http.Request) {
+	u := userOf(r)
+	p := a.page(u, nil, a.views(u, nil, "", "", "", false))
+	p.AllowedTags, p.AnyTag = userTags(u)
+	a.dress(&p, r, r.URL.RequestURI(), "title.settings")
+	p.AccountURL, p.LogoutURL = a.cfg.Load().AccountURL, a.cfg.Load().LogoutURL
+	render(w, "settings", p)
+}
+
+// errPage answers code with a page in the app's layout; what names the missing object of a 404, or the panic of a 500.
+func (a *App) errPage(w http.ResponseWriter, r *http.Request, code int, what string) {
+	u := userOf(r)
+	if u == nil {
+		u = &User{}
+	}
+	p := page{U: u}
+	if u.Role > none {
+		p = a.page(u, nil, a.views(u, nil, "", "", "", false))
+	}
+	p.Code = code
+	a.dress(&p, r, r.URL.RequestURI(), "err."+strconv.Itoa(code)+".code")
+	switch code {
+	case http.StatusNotFound:
+		p.ErrTitle, p.ErrText = p.T("err.404.title", cmp.Or(what, r.URL.Path)), p.T("err.404.text")
+	case http.StatusForbidden:
+		p.ErrTitle, p.ErrText = p.T("err.403.title"), p.T("err.403.text", cmp.Or(u.Name, "?"), u.Role)
+	default:
+		p.Ref = "ERR-" + strings.ToUpper(rand.Text()[:8])
+		p.ErrTitle, p.ErrText = p.T("err.500.title"), p.T("err.500.text")
+		slog.Error("internal error", "ref", p.Ref, "path", r.URL.Path, "err", what)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(code)
+	if err := pages["error"].ExecuteTemplate(w, "nb-layout", p); err != nil {
+		slog.Error("render", "page", "error", "err", err)
+	}
+}
+
+// recoverer answers a panic with the 500 page and its reference in the log.
+func (a *App) recoverer(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if v := recover(); v != nil && v != http.ErrAbortHandler {
+				a.errPage(w, r, http.StatusInternalServerError, fmt.Sprint(v))
+			}
+		}()
+		h.ServeHTTP(w, r)
+	})
+}
+
+// wantsJSON: autosave and API clients, as opposed to a browser posting a form.
+func wantsJSON(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "application/json")
+}
+
+// needUI is need for pages: below min, a browser gets the 403 page.
+func (a *App) needUI(w http.ResponseWriter, r *http.Request, min role) bool {
+	if userOf(r).Role >= min || wantsJSON(r) {
+		return need(w, r, min)
+	}
+	a.errPage(w, r, http.StatusForbidden, "")
+	return false
+}
+
 type confTemplate struct{ Kind, Type, Conf string }
 
 var kindNames = map[string]string{"monitor": "monitor", "page": "status page"}
@@ -556,52 +742,108 @@ func confTemplates(u *User) []confTemplate {
 	}
 }
 
-func (a *App) editPage(u *User, kind, name string, create bool) page {
+var listOf = map[string]string{"monitor": "monitors", "page": "pages"}
+
+func (a *App) editPage(r *http.Request, kind, name string, create bool) page {
+	u := userOf(r)
 	p := a.page(u, nil, a.views(u, nil, "", "", "", false))
 	p.EditKind, p.EditName, p.EditNew, p.Templates = kind, name, create, confTemplates(u)
 	p.AllowedTags, p.AnyTag = a.allowedTags(u, kind, name)
+	list, back := "/", "/monitor/"+name
+	if kind == "page" {
+		list, back = "/pages", "/status/"+name
+	}
+	here := r.URL.RequestURI()
+	if r.Method != http.MethodGet {
+		here = "/edit/" + kind + "/" + name
+		if create {
+			here = "/new?kind=" + kind
+		}
+	}
+	if create {
+		a.dress(&p, r, here, "title.new."+kind)
+		p.Crumbs = []crumb{{list, p.T("nav." + listOf[kind])}, {"", p.Title}}
+		return p
+	}
+	a.dress(&p, r, here, "title.edit."+kind, name)
+	p.Crumbs = []crumb{{list, p.T("nav." + listOf[kind])}, {back, name}, {"", p.T("btn.edit")}}
 	return p
 }
 
+// confRev: the version of a config file, so autosave notices a change made meanwhile.
+func confRev(conf string) string {
+	h := sha256.Sum256([]byte(conf))
+	return hex.EncodeToString(h[:6])
+}
+
 func (a *App) editForm(w http.ResponseWriter, r *http.Request) {
-	if !need(w, r, editor) {
+	if !a.needUI(w, r, editor) {
 		return
 	}
-	u, kind, name := userOf(r), cmp.Or(r.PathValue("kind"), "monitor"), r.PathValue("name")
-	p := a.editPage(u, kind, name, name == "")
-	p.Conf = p.Templates[0].Conf
-	if !p.EditNew {
-		if kindNames[kind] == "" || !slugRe.MatchString(name) || !a.mayEdit(u, kind, name) { // before any file access: path values are unescaped, %2F included
-			http.NotFound(w, r)
-			return
-		}
+	kind, name := cmp.Or(r.PathValue("kind"), r.FormValue("kind"), "monitor"), r.PathValue("name")
+	create := name == ""
+	if kindNames[kind] == "" || !create && (!slugRe.MatchString(name) || !a.mayEdit(userOf(r), kind, name)) { // before any file access: path values are unescaped, %2F included
+		a.errPage(w, r, http.StatusNotFound, T(langOf(r), "kind."+kind)+" "+name)
+		return
+	}
+	if create {
+		name = r.FormValue("name") // prefill: /new?kind=monitor&name=api&type=push
+	}
+	p := a.editPage(r, kind, name, create)
+	i := slices.IndexFunc(p.Templates, func(t confTemplate) bool {
+		return t.Kind == kind && (kind == "page" || t.Type == cmp.Or(r.FormValue("type"), "http"))
+	})
+	p.Conf = p.Templates[max(i, 0)].Conf
+	if !create {
 		b, err := os.ReadFile(a.confFile(kind, name))
 		if err != nil {
-			http.NotFound(w, r)
+			a.errPage(w, r, http.StatusNotFound, T(langOf(r), "kind."+kind)+" "+name)
 			return
 		}
 		p.Conf = string(b)
+		p.Rev = confRev(p.Conf)
 	}
 	render(w, "edit", p)
 }
 
 func (a *App) editSave(w http.ResponseWriter, r *http.Request) {
-	if !need(w, r, editor) {
+	if !a.needUI(w, r, editor) {
 		return
 	}
 	u, kind, name, conf := userOf(r), cmp.Or(r.FormValue("kind"), "monitor"), r.FormValue("name"), strings.ReplaceAll(r.FormValue("conf"), "\r\n", "\n")
 	create, del := r.FormValue("new") != "", r.FormValue("delete") != ""
-	if err := a.saveConf(u, kind, name, conf, create, del); err != nil {
-		p := a.editPage(u, kind, name, create)
-		p.Conf, p.Err = conf, err.Error()
+	var err error
+	if rev := r.FormValue("rev"); rev != "" && !create && !del && kindNames[kind] != "" && slugRe.MatchString(name) {
+		// ponytail: compared before saveConf, outside its lock; a save in between still wins
+		if b, rerr := os.ReadFile(a.confFile(kind, name)); rerr == nil && confRev(string(b)) != rev {
+			err = errors.New(T(langOf(r), "edit.changed"))
+		}
+	}
+	if err == nil {
+		err = a.saveConf(u, kind, name, conf, create, del)
+	}
+	if err != nil {
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error(), "field": "conf"})
+			return
+		}
+		p := a.editPage(r, kind, name, create)
+		p.Conf, p.ConfErr, p.Rev = conf, err.Error(), r.FormValue("rev")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
-		render(w, "edit", p)
+		if err := pages["edit"].ExecuteTemplate(w, "nb-layout", p); err != nil {
+			slog.Error("render", "page", "edit", "err", err)
+		}
 		return
 	}
 	a.reload(a.ctx)
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, map[string]string{"rev": confRev(conf)})
+		return
+	}
 	back := map[string]string{"monitor": "/monitor/", "page": "/status/"}[kind] + name
 	if del {
-		back = "/"
+		back = map[string]string{"monitor": "/", "page": "/pages"}[kind]
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
@@ -764,6 +1006,12 @@ func (a *App) events(w http.ResponseWriter, r *http.Request) {
 	q, u := r.URL.Query(), userOf(r)
 	path, tags, search := q.Get("path"), q["tag"], q.Get("q")
 	detail, isDetail := strings.CutPrefix(path, "/monitor/")
+	vq := maps.Clone(q)
+	delete(vq, "path")
+	here := path
+	if len(vq) > 0 {
+		here += "?" + vq.Encode()
+	}
 	shows := func(name string) bool {
 		m := a.visible(u, name)
 		if m == nil && u.Role < admin { // a removed monitor's events only reach admins
@@ -799,6 +1047,7 @@ func (a *App) events(w http.ResponseWriter, r *http.Request) {
 	shown := map[string]bool{}
 	if path != "" {
 		if name, p := a.uiPage(u, path, q); name != "" {
+			a.dressUI(&p, r, here, name)
 			send("main", tmpl(name, "main", p))
 			for _, v := range p.Monitors {
 				shown[v.Name] = true
@@ -827,11 +1076,13 @@ func (a *App) events(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case isDetail && dirty[detail]:
 				if name, p := a.uiPage(u, path, q); name != "" {
+					a.dressUI(&p, r, here, name)
 					send("main", tmpl(name, "main", p))
 				}
 			case path == "/":
 				vs := a.views(u, nil, "", "", "", false)
 				p, changed := a.page(u, q, vs), false
+				a.dress(&p, r, here, "title.monitors")
 				for _, v := range filterViews(vs, tags, "", search) {
 					if on := matches(v, nil, p.State, ""); dirty[v.Name] && (on || shown[v.Name]) {
 						html := ""
@@ -886,12 +1137,17 @@ func (a *App) statusPage(w http.ResponseWriter, r *http.Request) {
 	for _, v := range vs {
 		data.Monitors = append(data.Monitors, StatusMonitor{v.Name, v.Description, v.State, v.Paused, v.PauseReason})
 	}
-	t := statusTmpl
-	if sp.tmpl != nil {
-		t = sp.tmpl
-	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := t.Execute(w, data); err != nil {
+	if sp.tmpl != nil {
+		if err := sp.tmpl.Execute(w, data); err != nil {
+			slog.Error("render status page", "slug", sp.Slug, "err", err)
+		}
+		return
+	}
+	p := page{S: &data, Overall: data.State}
+	a.dress(&p, r, r.URL.RequestURI(), "title.status", data.Title)
+	p.Nav, p.Search, p.SettingsURL, p.User, p.LogoutURL = nil, "", "", "", "" // public: no app navigation
+	if err := statusTmpl.ExecuteTemplate(w, "nb-bare", p); err != nil {
 		slog.Error("render status page", "slug", sp.Slug, "err", err)
 	}
 }

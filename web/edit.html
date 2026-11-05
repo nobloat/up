@@ -1,15 +1,16 @@
-{{define "main"}}<main data-red="{{.Red}}" data-state="{{.Overall}}">
-<h1>{{if .EditNew}}new{{else}}edit {{index .KindNames .EditKind}} {{.EditName}}{{end}}</h1>
-{{with .Err}}<p class="banner red" role="alert">{{.}}</p>{{end}}
-<form method="post" action="/edit" class="edit">
+{{define "main"}}<div class="pagehead"><h1>{{.BaseTitle}}</h1>{{if not .EditNew}}<span class="row"><span class="saved" aria-live="polite"></span>
+<form method="post" action="/edit" class="inline" data-confirm-title="{{.T "edit.delete.title" (.T (print "kind." .EditKind)) .EditName}}" data-confirm="{{.T (print "edit.delete." .EditKind) .EditName}}"><input type="hidden" name="kind" value="{{.EditKind}}"><input type="hidden" name="name" value="{{.EditName}}"><input type="hidden" name="delete" value="1"><button class="del">{{.T "btn.delete"}}</button></form></span>{{end}}</div>
+<form method="post" action="/edit" class="form edit"{{if not .EditNew}} data-autosave{{end}}>
 <input type="hidden" name="kind" value="{{.EditKind}}">
-{{if .EditNew}}<p><label>type <span class="muted">(starts the file from a template)</span><br><select id="conf-type" autocomplete="off">{{range .Templates}}<option data-kind="{{.Kind}}" data-conf="{{.Conf}}"{{if and (eq .Kind "page") (eq $.EditKind "page")}} selected{{end}}>{{.Type}}</option>{{end}}</select></label></p>
-<p><label>name <span class="muted">(the file name before .monitor.conf or .page.conf; a status page is served at /status/&lt;name&gt;)</span><br><input name="name" value="{{.EditName}}" required autofocus autocomplete="off" pattern="[a-z0-9][a-z0-9.\-]*" title="lower case letters, digits, . and -"></label></p>
-<input type="hidden" name="new" value="1">{{else}}<input type="hidden" name="name" value="{{.EditName}}">{{end}}
-<p><textarea name="conf" rows="18" spellcheck="false" aria-label="configuration, one key = value per line" aria-describedby="allowed-tags">{{.Conf}}</textarea></p>
-<p id="allowed-tags" class="muted">tags you may use: {{if .AnyTag}}any{{else if .AllowedTags}}<b>{{range $i, $t := .AllowedTags}}{{if $i}}, {{end}}{{$t}}{{end}}</b>, at least one{{else}}none, ask an admin{{end}}</p>
-<p class="buttons"><button title="save (ctrl+enter)"><span class="ico" aria-hidden="true">✓</span> save <kbd>ctrl ⏎</kbd></button>
-<a href="{{if .EditNew}}/{{else if eq .EditKind "page"}}/status/{{.EditName}}{{else}}/monitor/{{.EditName}}{{end}}" class="btn cancel" title="cancel (esc)"><span class="ico" aria-hidden="true">×</span> cancel <kbd>esc</kbd></a>
-{{if not .EditNew}}<button name="delete" value="1" formnovalidate title="delete" onclick="return confirm('Delete {{index .KindNames .EditKind}} {{.EditName}}?{{if eq .EditKind "monitor"}} Its audit log is kept.{{end}}')"><span class="ico" aria-hidden="true">⌫</span> delete</button>{{end}}</p>
-</form>
-</main>{{end}}
+{{if .EditNew}}<label for="conf-type">{{.T "edit.type"}}</label><select id="conf-type" name="type" autocomplete="off" aria-describedby="conf-type-h">{{range .Templates}}<option value="{{.Type}}" data-kind="{{.Kind}}" data-conf="{{.Conf}}"{{if eq .Conf $.Conf}} selected{{end}}>{{.Type}}</option>{{end}}</select>
+<span class="hint" id="conf-type-h">{{.T "edit.type.hint"}}</span>
+<label for="f-name">{{.T "edit.name"}}</label><input id="f-name" name="name" value="{{.EditName}}" required autofocus autocomplete="off" pattern="[a-z0-9][a-z0-9.\-]*" title="{{.T "edit.name.title"}}" aria-describedby="f-name-h">
+<span class="hint" id="f-name-h">{{.T "edit.name.hint"}}</span>
+<input type="hidden" name="new" value="1">{{else}}<input type="hidden" name="name" value="{{.EditName}}"><input type="hidden" name="rev" value="{{.Rev}}">{{end}}
+<label for="conf">{{.T "edit.conf"}}</label><textarea id="conf" name="conf" rows="18" spellcheck="false" aria-describedby="allowed-tags{{if .ConfErr}} conf-err{{end}}"{{if .ConfErr}} aria-invalid="true"{{end}}>{{.Conf}}</textarea>
+{{with .ConfErr}}<span class="err" id="conf-err" role="alert">{{.}}</span>{{end}}
+<span class="hint" id="allowed-tags">{{.T "edit.tags"}}: {{if .AnyTag}}{{.T "edit.tags.any"}}{{else if .AllowedTags}}<b>{{range $i, $t := .AllowedTags}}{{if $i}}, {{end}}{{$t}}{{end}}</b>, {{.T "edit.tags.least"}}{{else}}{{.T "edit.tags.none"}}{{end}}</span>
+<div class="full row end">{{if .EditNew}}<a class="btn" href="{{(index .Crumbs 0).Href}}">{{.T "btn.cancel"}}</a><button class="pri new">{{.T "btn.create"}} <kbd>Ctrl Enter</kbd></button>{{else}}<button class="pri nojs">{{.T "btn.save"}}</button>{{end}}</div>
+</form>{{end}}
+
+{{define "keys"}} · {{if .EditNew}}<kbd>Ctrl</kbd> <kbd>Enter</kbd> {{.T "key.create"}}{{else}}{{.T "key.autosave"}}{{end}} · <kbd>Esc</kbd> {{.T "key.leave"}}{{end}}

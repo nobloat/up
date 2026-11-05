@@ -1,0 +1,59 @@
+{{/* up's parts shared by every signed-in page; nobloat/ui's partials.html is parsed before this file */}}
+
+{{define "head"}}<link rel="stylesheet" href="/static/app.css">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/app-icon.png">
+<meta name="apple-mobile-web-app-title" content="up">{{end}}
+
+{{define "help"}}<tr><td><kbd>c</kbd></td><td>{{.T "help.new"}}</td></tr>
+<tr><td><kbd>e</kbd></td><td>{{.T "help.edit"}}</td></tr>
+<tr><td><kbd>r</kbd></td><td>{{.T "help.check"}}</td></tr>
+<tr><td><kbd>p</kbd></td><td>{{.T "help.pause"}}</td></tr>
+<tr><td><kbd>Ctrl</kbd> <kbd>Enter</kbd></td><td>{{.T "help.save"}}</td></tr>{{end}}
+
+{{define "scripts"}}<dialog id="pause-dialog" aria-labelledby="pause-h">
+<h2 id="pause-h">{{.T "pause.title"}} <b id="pause-name"></b></h2>
+<form method="post" class="form">
+<label for="pause-reason">{{.T "pause.reason"}}</label><input id="pause-reason" name="reason" placeholder="{{.T "pause.reason.ph"}}" aria-describedby="pause-reason-h">
+<span class="hint" id="pause-reason-h">{{.T "pause.reason.hint"}}</span>
+<span class="lab" id="pause-ends-lab">{{.T "pause.resume"}}</span>
+<div class="ends" role="radiogroup" aria-labelledby="pause-ends-lab">
+<label><input type="radio" name="end" value="" checked> {{.T "pause.manual"}}</label>
+<label><input type="radio" name="end" value="for"> {{.T "pause.after"}} <input name="for" size="6" placeholder="2h" list="pause-for" aria-label="{{.T "pause.for"}}" pattern="\d+d(\d+(\.\d+)?(h|m|s))*|(\d+(\.\d+)?(h|m|s))+" title="{{.T "pause.for.title"}}"></label>
+<label><input type="radio" name="end" value="at"> {{.T "pause.at"}} <input type="datetime-local" id="pause-at" aria-label="{{.T "pause.at.label"}}"></label>
+</div>
+<output id="pause-end" class="hint" for="pause-at"></output>
+<datalist id="pause-for"><option value="15m"><option value="30m"><option value="1h"><option value="2h"><option value="4h"><option value="8h"><option value="12h"><option value="1d"><option value="2d"><option value="3d"><option value="7d"><option value="14d"></datalist>
+<input type="hidden" name="until">
+<div class="full row end"><button type="button" data-close>{{.T "btn.cancel"}} <kbd>Esc</kbd></button><button class="pri"><i class="icon-pause" aria-hidden="true"></i> {{.T "btn.pause"}} <kbd>Enter</kbd></button></div>
+</form>
+</dialog>
+<script type="module" src="/static/app.js"></script>{{end}}
+
+{{/* notifier failures, for admins */}}
+{{define "failing"}}{{range .Failing}}<p class="warn" role="alert"><span>{{$.T "fail.notifier"}} <b>{{.Notifier}}</b> {{$.T "fail.since"}} {{if .Since.IsZero}}{{$.T "time.unknown"}}{{else}}{{template "ts" .Since}} ({{template "rel" .Since}}){{end}}: {{.Err}}</span></p>
+{{end}}{{end}}
+
+{{/* the next templates take a rowData: a monitor and its page */}}
+{{define "check"}}{{if ne .Type "push"}}<form method="post" action="/api/monitors/{{.Name}}/check" class="check inline"><button title="{{.Page.T "btn.check"}} (r)" aria-label="{{.Page.T "btn.check"}}: {{.Name}}"{{if .Checking}} aria-busy="true"{{end}}><i class="icon-refresh" aria-hidden="true"></i><span class="lbl"> {{.Page.T "btn.check"}} <kbd>r</kbd></span></button></form>{{end}}{{end}}
+
+{{define "pause"}}{{if .Paused}}<form method="post" action="/api/monitors/{{.Name}}/resume" class="resume inline"><button><i class="icon-play" aria-hidden="true"></i> {{.Page.T "btn.resume"}} <kbd>p</kbd></button></form>
+{{else}}<form method="post" action="/api/monitors/{{.Name}}/pause" class="pause inline" data-name="{{.Name}}"><button><i class="icon-pause" aria-hidden="true"></i> {{.Page.T "btn.pause"}} <kbd>p</kbd></button></form>{{end}}{{end}}
+
+{{define "state"}}<span class="light{{if .Paused}} is-paused{{end}}">{{template "dot" (.Page.D .State)}}</span>{{if .Paused}}<i class="icon-pause paused" role="img" aria-label="{{.Page.T "state.paused"}}" title="{{.Page.T "state.paused"}}{{with .PauseReason}}: {{.}}{{end}}"></i>{{end}}{{end}}
+
+{{define "times"}}<span class="times" title="{{.Page.T "times.title"}}">{{with .LastCheck}}{{template "rel" .Time}}{{else}}–{{end}}{{if not .NextCheck.IsZero}} → {{template "relnext" .NextCheck}}{{end}}</span>{{end}}
+
+{{/* a light: takes page.D state */}}
+{{define "dot"}}<span class="dot {{.Class}}" role="img" aria-label="{{.Label}}" title="{{.Label}}"></span>{{end}}
+
+{{define "tags"}}{{range .}}<a class="tag{{if .On}} on{{end}}" href="{{.URL}}">{{.Name}}</a>{{end}}{{end}}
+
+{{define "rel"}}<time datetime="{{.Format "2006-01-02T15:04:05Z07:00"}}" title="{{template "ts" .}}" data-rel>{{rel . false}}</time>{{end}}
+
+{{define "relnext"}}<time datetime="{{.Format "2006-01-02T15:04:05Z07:00"}}" title="{{template "ts" .}}" data-rel="next">{{rel . true}}</time>{{end}}
+
+{{define "pages"}}{{range $i, $p := .}}{{if $i}} · {{end}}<a href="/status/{{$p.Slug}}">{{$p.Title}}</a>{{end}}{{end}}
+
+{{/* every timestamp in the UI: server-local time with zone; audit rows come from the CSV in UTC */}}
+{{define "ts"}}{{.Local.Format "2006-01-02 15:04:05 MST"}}{{end}}

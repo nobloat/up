@@ -666,7 +666,7 @@ func TestPromQLChecks(t *testing.T) {
 				}
 				if c.name == "all series must pass" && (len(v.LastCheck.Samples) != 2 || v.LastCheck.Samples[1].Labels["instance"] != "b" || v.LastCheck.Samples[1].OK ||
 					!strings.Contains(b, `<thead><tr><th colspan="3"><code>up{job=&#34;api&#34;}</code></th></tr></thead>`) || !strings.Contains(b, `<code>instance=&#34;b&#34;</code></td><td class="num"><code>0</code>`) ||
-					!strings.Contains(b, " in 0s")) {
+					!strings.Contains(b, " took 0s")) {
 					t.Fatalf("samples %+v in api or detail page: %s", v.LastCheck.Samples, b)
 				}
 				if c.name == "nan fails" && (len(v.LastCheck.Samples) != 1 || !math.IsNaN(float64(v.LastCheck.Samples[0].Value))) {
@@ -853,7 +853,7 @@ func TestNotifierFailureRetried(t *testing.T) {
 		e.post("/api/monitors/m/check", "")
 		e.wantState("m", red)
 		sleep(6 * time.Second)
-		if !strings.Contains(e.get("/"), "notifier <b>chat</b> failing since") {
+		if !strings.Contains(e.get("/"), "Notifier <b>chat</b> is failing since") {
 			t.Fatal("no failure banner")
 		}
 		down.Store(false)
@@ -1557,12 +1557,12 @@ func TestAPIAndUI(t *testing.T) {
 			t.Fatalf("post without auth: %d", resp.StatusCode)
 		}
 
-		if b := e.get("/"); !strings.Contains(b, `href="/monitor/web"`) || !strings.Contains(b, `data-red="2"`) || !strings.Contains(b, "<title>][ up (2 failing)</title>") ||
-			!strings.Contains(b, `data-state="red"`) || !strings.Contains(b, `href="/static/favicon-red.svg"`) || !strings.Contains(b, `class="mark red"`) {
+		if b := e.get("/"); !strings.Contains(b, `href="/monitor/web"`) || !strings.Contains(b, `data-red="2"`) || !strings.Contains(b, "<title>][• up · Monitors (2 failing)</title>") ||
+			!strings.Contains(b, `data-state="red"`) || !strings.Contains(b, `href="/static/favicon-red.svg"`) {
 			t.Fatalf("list: %s", b)
 		}
-		if b := e.get("/"); !strings.Contains(b, `<a href="/status/public">Example Status</a> <a href="/edit/page/public"`) ||
-			!strings.Contains(e.get("/monitor/web"), `<a href="/status/public">Example Status</a>`) || strings.Contains(e.get("/monitor/internal"), `<span class="muted">on `) {
+		if b := e.get("/pages"); !strings.Contains(b, `<a href="/status/public">Example Status</a>`) || !strings.Contains(b, `href="/edit/page/public"`) ||
+			!strings.Contains(e.get("/monitor/web"), `<a href="/status/public">Example Status</a>`) || strings.Contains(e.get("/monitor/internal"), `<span>status pages</span>`) {
 			t.Fatal("status page links missing")
 		}
 		if b := e.get("/"); strings.Contains(b, "/pause") || !strings.Contains(b, `action="/api/monitors/web/check"`) {
@@ -1587,11 +1587,11 @@ func TestAPIAndUI(t *testing.T) {
 			t.Fatalf("state filter: %s", b)
 		}
 		for _, p := range []string{"/", "/monitor/web"} {
-			if b := e.get(p); strings.Contains(b, ">red<") || !strings.Contains(b, `<span class="dot red" role="img" aria-label="red"`) {
+			if b := e.get(p); !strings.Contains(b, `<span class="dot bad" role="img" aria-label="down"`) {
 				t.Fatalf("%s state rendering: %s", p, b)
 			}
 		}
-		if b := e.get("/monitor/web"); !strings.Contains(b, "HTTP 503") || !strings.Contains(b, "new monitor") || !strings.Contains(b, "uptime <b>0.00%</b>, <b>1m 0s</b> down") {
+		if b := e.get("/monitor/web"); !strings.Contains(b, "HTTP 503") || !strings.Contains(b, "<b>0.00%</b> · <b>1m 0s</b> down") {
 			t.Fatalf("detail: %s", b)
 		}
 		for _, p := range []string{"/", "/monitor/web"} {
@@ -1619,7 +1619,7 @@ func TestAPIAndUI(t *testing.T) {
 				t.Fatalf("%s: %d %s", icon, resp.StatusCode, resp.Header.Get("Content-Type"))
 			}
 		}
-		if resp, b := e.do("GET", "/static/style.css", "", ""); resp.StatusCode != 200 || !strings.Contains(b, `[data-theme="dark"]`) {
+		if resp, b := e.do("GET", "/static/ui.css", "", ""); resp.StatusCode != 200 || !strings.Contains(b, `[data-theme="dark"]`) {
 			t.Fatal("static")
 		}
 
@@ -1670,19 +1670,19 @@ func TestAPIAndUI(t *testing.T) {
 		if b := e.get("/monitor/web"); regexp.MustCompile(`\d\d:\d\d(:\d\d)?(</td>|</p>|<span| \(|,)`).MatchString(b) {
 			t.Fatalf("timestamp without zone: %s", b)
 		}
-		if b := e.get("/monitor/web"); strings.Count(b, `<td class="ev">`) != len(e.rows("web")) || strings.Count(b, `<td class="ev"></td>`) != 0 ||
-			!strings.Contains(b, `<td class="ev"><span class="ico" role="img" aria-label="paused" title="paused">❚❚`) {
+		if b := e.get("/monitor/web"); strings.Count(b, `<td class="evt">`) != len(e.rows("web")) || strings.Count(b, `<td class="evt"></td>`) != 0 ||
+			!strings.Contains(b, `<td class="evt"><i class="icon-pause" role="img" aria-label="paused" title="paused"></i>`) {
 			t.Fatalf("audit log icons: %s", b)
 		}
-		if b := e.get("/monitor/web"); !strings.Contains(b, `<p class="banner red">HTTP 503`) || !strings.Contains(b, `HTTP 503 <span class="muted">since <time`) ||
-			!regexp.MustCompile(`<p class="banner pause">.+ maint until 14:00 <span class="muted">since <time [^>]+>now</time>`).MatchString(b) {
+		if b := e.get("/monitor/web"); !strings.Contains(b, `<span>state</span><span>down: HTTP 503</span>`) ||
+			!regexp.MustCompile(`<p class="banner"><strong>Paused: maint until 14:00</strong><span>since <time [^>]+>now</time>`).MatchString(b) {
 			t.Fatalf("detail banners: %s", b)
 		}
-		if b := e.get("/"); !strings.Contains(b, `<span class="st is-paused"><span class="dot red"`) {
+		if b := e.get("/"); !strings.Contains(b, `<span class="light is-paused"><span class="dot bad"`) {
 			t.Fatal("paused monitor's light is not pale")
 		}
 		if b := e.get("/?state=paused"); !strings.Contains(b, `href="/monitor/web"`) || strings.Contains(b, `href="/monitor/internal"`) ||
-			!strings.Contains(b, `<a class="chip on" href="/">`) || !strings.Contains(b, `aria-label="paused" title="paused">❚❚</span><span class="n">1</span>`) {
+			!strings.Contains(b, `<a class="chip on" href="/">`) || !strings.Contains(b, `<i class="icon-pause" aria-hidden="true"></i>paused<span class="n">1</span>`) {
 			t.Fatalf("paused filter: %s", b)
 		}
 		resp, _ = e.post("/api/monitors/internal/check", "", append(form, "Referer", "http://evil.example/steal")...)
@@ -1712,9 +1712,9 @@ func TestAPIAndUI(t *testing.T) {
 		}
 
 		resp, b = e.do("GET", "/status/public", "", "")
-		if resp.StatusCode != 200 || !strings.Contains(b, "Example Status") || !strings.Contains(b, "web") || !strings.Contains(b, "red") ||
+		if resp.StatusCode != 200 || !strings.Contains(b, "Example Status") || !strings.Contains(b, "web") || !strings.Contains(b, `class="dot bad"`) ||
 			!strings.Contains(b, "paused: maint until 14:00") || strings.Contains(b, "internal") ||
-			!strings.Contains(b, `<li class="card red is-paused">`) || !strings.Contains(b, "<p>Shop front page answers</p>") ||
+			!strings.Contains(b, `<li class="card off is-paused">`) || !strings.Contains(b, "<p>Shop front page answers</p>") ||
 			strings.Contains(b, "503") || strings.Contains(b, "secret-path") || strings.Contains(b, "new monitor") {
 			t.Fatalf("status page: %d %s", resp.StatusCode, b)
 		}
@@ -1838,14 +1838,14 @@ func TestEventsPage(t *testing.T) {
 		}
 		list, red, detail := stream("path=/&tag=a"), stream("path=/&state=red"), stream("path=/monitor/n")
 		for _, next := range []func() []string{list, red, detail} {
-			if got := next(); len(got) != 1 || !strings.HasPrefix(got[0], "main <main") {
+			if got := next(); len(got) != 1 || !strings.HasPrefix(got[0], "main <div id=\"live\"") {
 				t.Fatalf("initial %q", got)
 			}
 		}
 		has := func(got []string, prefix string) bool {
 			return slices.ContainsFunc(got, func(s string) bool { return strings.HasPrefix(s, prefix) })
 		}
-		mRow := `row {"html":"\u003ctr data-href=\"/monitor/m`
+		mRow := `row {"html":"\u003ctr id=\"MON-M\" data-hre`
 		e.post("/api/monitors/m/check", "")
 		if got := list(); !has(got, mRow) || !has(got, "head ") || has(got, "message ") {
 
@@ -1861,7 +1861,7 @@ func TestEventsPage(t *testing.T) {
 		if got := list(); len(got) != 0 {
 			t.Fatalf("list filtered to tag a got events of n: %q", got)
 		}
-		if got := detail(); !has(got, "main <main") || has(got, `message {"type":"checking"`) {
+		if got := detail(); !has(got, "main <div id=\"live\"") || has(got, `message {"type":"checking"`) {
 			t.Fatalf("detail %q", got)
 		}
 		status.Store(200)
@@ -1947,7 +1947,7 @@ func TestSSO(t *testing.T) {
 			t.Fatalf("viewer list: %d %s", c, b)
 		}
 		if c, b := as("GET", "/", "up-viewer,team-a"); c != 200 || !strings.Contains(b, "/monitor/web") || strings.Contains(b, "/monitor/db") || strings.Contains(b, "/check") ||
-			!strings.Contains(b, `<a href="https://auth.example/settings" title="account · viewer">alice</a>`) || !strings.Contains(b, `href="https://auth.example/logout"`) {
+			!strings.Contains(b, `<a class="who" href="https://auth.example/settings">alice</a>`) || !strings.Contains(b, `href="https://auth.example/logout"`) {
 			t.Fatalf("viewer page: %d %s", c, b)
 		}
 		for path, want := range map[string]int{"/api/monitors/db": 404, "/monitor/db": 404, "/api/monitors/web": 200} {
@@ -2014,8 +2014,8 @@ func TestEditMonitor(t *testing.T) {
 		conf := "type = http\r\ninterval = 1m\r\nurl = http://target/\r\nnotifiers = chat\r\n"
 		file := filepath.Join(e.dir, "b.monitor.conf")
 
-		if b := e.get("/monitor/a"); !strings.Contains(b, `href="/new"`) {
-			t.Fatal("no new button in the header")
+		if b := e.get("/"); !strings.Contains(b, `href="/new"`) {
+			t.Fatal("no new button on the list")
 		}
 		for _, u := range []*User{{Role: admin}, {Role: editor, Tags: []string{"prod"}}} {
 			for _, tm := range confTemplates(u) {
@@ -2138,10 +2138,10 @@ func TestEditMonitor(t *testing.T) {
 		if c, _ := form(page(url.Values{"name": {"ops"}, "conf": {"title = Ops\ntag = db\ntemplate = ok.html\n"}, "new": {"1"}})); c != 303 || e.get("/status/ops") != "custom Ops" {
 			t.Fatalf("page create: %d", c)
 		}
-		if b := e.get("/"); !strings.Contains(b, `href="/edit/page/ops"`) {
+		if b := e.get("/pages"); !strings.Contains(b, `href="/edit/page/ops"`) {
 			t.Fatal("no page edit link")
 		}
-		if _, b := e.do("GET", "/", "", "", "Remote-User", "eve", "Remote-Groups", "up-editor,team-a"); strings.Contains(b, "/edit/page/ops") {
+		if _, b := e.do("GET", "/pages", "", "", "Remote-User", "eve", "Remote-Groups", "up-editor,team-a"); strings.Contains(b, "/edit/page/ops") {
 			t.Fatal("editor sees edit link of a page outside their tags")
 		}
 		if c, _ := as("up-editor,team-a", page(url.Values{"name": {"ops"}, "conf": {"tag = prod\n"}})); c != 400 {
@@ -2194,4 +2194,59 @@ func TestMaskEncodedQuery(t *testing.T) {
 	if s := maskURL("https://x/?format=json"); s != "https://x/?format=json" {
 		t.Fatal(s)
 	}
+}
+
+// nobloat/ui layout: design and brand, language, the new pages, error pages, autosave with rev.
+func TestUILayout(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		e.serve("target:80", func(w http.ResponseWriter, r *http.Request) {}, nil)
+		e.start(e.cfg(`"design": "paper", "brand_color": "#3b6e94", "brand_color_dark": "#7aa7c9", "trusted_proxies": ["10.0.0.0/8"], "role": {"viewer": ["up-viewer"]}, "access": {"team-a": ["prod"]},
+			"monitors": [{"name": "a", "type": "http", "interval": "1m", "tags": ["prod"], "http": {"url": "http://target/"}}], "status_pages": [{"slug": "pub", "title": "Pub", "tag": "prod"}]`))
+		if b := e.get("/"); !strings.Contains(b, `<html lang="en" data-design="paper">`) || !strings.Contains(b, "--brand: #3b6e94; --brand-dark: #7aa7c9;") ||
+			!strings.Contains(b, `<tr id="MON-A"`) || !strings.Contains(b, `href="/static/ui.css"`) || !strings.Contains(b, `href="/static/app.css"`) {
+			t.Fatalf("layout: %s", b)
+		}
+		if b := e.get("/pages"); !strings.Contains(b, `href="/status/pub"`) || !strings.Contains(b, `<a href="/pages" data-g="s" class="on" aria-current="page">`) {
+			t.Fatalf("pages: %s", b)
+		}
+		if b := e.get("/settings"); !strings.Contains(b, `id="theme-seg"`) || !strings.Contains(b, `href="/api/export"`) {
+			t.Fatalf("settings: %s", b)
+		}
+		if resp, _ := e.do("GET", "/?q=MON-A", "admin", ""); resp.Header.Get("Location") != "/monitor/a" {
+			t.Fatalf("id search: %s", resp.Header.Get("Location"))
+		}
+		resp, _ := e.do("GET", "/lang/de?rd=/pages", "", "")
+		if resp.StatusCode != 303 || resp.Header.Get("Location") != "/pages" || !strings.Contains(resp.Header.Get("Set-Cookie"), "lang=de") {
+			t.Fatalf("lang: %d %v", resp.StatusCode, resp.Header)
+		}
+		if resp, _ := e.do("GET", "/lang/de?rd=//evil.example", "", ""); resp.Header.Get("Location") != "/" {
+			t.Fatalf("lang open redirect: %s", resp.Header.Get("Location"))
+		}
+		if _, b := e.do("GET", "/", "admin", "", "Cookie", "lang=de"); !strings.Contains(b, `<html lang="de"`) || !strings.Contains(b, "Neuer Monitor") {
+			t.Fatalf("german: %s", b)
+		}
+		if resp, b := e.do("GET", "/monitor/nope", "admin", ""); resp.StatusCode != 404 || !strings.Contains(b, "There is no monitor nope") || !strings.Contains(b, `<nav class="app"`) {
+			t.Fatalf("404: %d %s", resp.StatusCode, b)
+		}
+		if resp, b := e.do("GET", "/new", "", "", "Remote-User", "v", "Remote-Groups", "up-viewer,team-a"); resp.StatusCode != 403 || !strings.Contains(b, "signed in as v with the role viewer") {
+			t.Fatalf("403: %d %s", resp.StatusCode, b)
+		}
+		edit := e.get("/edit/monitor/a")
+		rev := regexp.MustCompile(`name="rev" value="([0-9a-f]+)"`).FindStringSubmatch(edit)
+		if rev == nil || !strings.Contains(edit, "data-autosave") {
+			t.Fatalf("edit form: %s", edit)
+		}
+		save := func(rev string) (int, string) {
+			v := url.Values{"kind": {"monitor"}, "name": {"a"}, "rev": {rev}, "conf": {"type = http\ninterval = 2m\ntags = prod\nurl = http://target/\n"}}
+			resp, b := e.post("/edit", v.Encode(), "Content-Type", "application/x-www-form-urlencoded", "Accept", "application/json")
+			return resp.StatusCode, b
+		}
+		if c, b := save(rev[1]); c != 200 || !strings.Contains(b, `"rev"`) {
+			t.Fatalf("autosave: %d %s", c, b)
+		}
+		if c, b := save(rev[1]); c != 400 || !strings.Contains(b, `"field":"conf"`) || !strings.Contains(b, "changed meanwhile") {
+			t.Fatalf("stale rev: %d %s", c, b)
+		}
+	})
 }

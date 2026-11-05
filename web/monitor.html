@@ -1,19 +1,28 @@
-{{define "main"}}<main data-red="{{.Red}}" data-state="{{.Overall}}"{{if and .M .M.Checking}} class="checking"{{end}}>
-{{with .M}}
-<div class="head"><h1>{{template "state" .}} {{template "type" .Type}} {{.Name}}</h1>
-{{if $.Edit}}<div class="buttons">{{template "check" .}} {{template "pause" .}} <a href="/edit/monitor/{{.Name}}" class="btn edit" title="edit (e)"><span class="ico" aria-hidden="true">✎</span> edit <kbd>e</kbd></a></div>{{end}}</div>
-<p class="sub">{{with .Description}}{{linkify .}}<br>{{end}}{{template "tags" ($.TagLinks .Tags)}}{{with $.PagesFor .Tags}} <span class="muted">on {{template "pages" .}}</span>{{end}}</p>
-<p class="banner {{.State}}">{{with .Reason}}{{linkify .}} {{end}}<span class="muted">since {{template "rel" .Since}}<br>
-checked {{template "times" .}}{{with .LastCheck}} in {{.Duration}}{{end}}{{with .Uptime}} · <span title="green vs. red time since {{template "ts" .Since}}; retries and unknown time don't count">uptime <b>{{.Pct}}</b>, <b>{{.Down}}</b> down</span>{{end}}</span></p>
-{{if .Paused}}<p class="banner pause"><span class="ico" role="img" aria-label="paused" title="paused">❚❚</span> {{or .PauseReason "no reason given"}} <span class="muted">since {{template "rel" .PausedSince}}{{if not .PausedUntil.IsZero}} · until {{template "ts" .PausedUntil}} ({{template "relnext" .PausedUntil}}){{end}} · shown on status pages</span></p>{{end}}
+{{define "main"}}<div id="live" data-red="{{.Red}}" data-state="{{.Overall}}" data-title="{{.BaseTitle}}">
+{{template "failing" .}}
+{{with .M}}{{$r := $.Row .}}
+<div class="pagehead"><h1>{{template "state" $r}}{{.Name}}</h1>
+{{if $.Edit}}<span class="row">{{template "check" $r}}{{template "pause" $r}}<a class="btn edit" href="/edit/monitor/{{.Name}}" data-key="e">{{$.T "btn.edit"}} <kbd>e</kbd></a></span>{{end}}</div>
+{{if .Paused}}<p class="banner"><strong>{{$.T "paused.title"}}: {{or .PauseReason ($.T "paused.noreason")}}</strong><span>{{$.T "paused.since"}} {{template "rel" .PausedSince}}{{if not .PausedUntil.IsZero}} · {{$.T "paused.until"}} {{template "ts" .PausedUntil}} ({{template "relnext" .PausedUntil}}){{end}} · {{$.T "paused.public"}}</span></p>{{end}}
+<div class="info">
+<span>{{$.T "info.state"}}</span><span>{{($.D .State).Label}}{{with .Reason}}: {{linkify .}}{{end}}</span>
+<span>{{$.T "info.since"}}</span><span>{{template "rel" .Since}}</span>
+<span>{{$.T "info.checked"}}</span><span>{{template "times" $r}}{{with .LastCheck}} · {{$.T "info.took"}} {{.Duration}}{{end}}</span>
+{{with .Uptime}}<span>{{$.T "info.uptime"}}</span><span title="{{$.T "info.uptime.title" (print (tsf .Since))}}"><b>{{.Pct}}</b> · <b>{{.Down}}</b> {{$.T "info.down"}}</span>{{end}}
+<span>{{$.T "info.id"}}</span><span><code class="id">{{.ID}}</code> <button type="button" class="round copy" data-copy="{{.ID}}" title="{{$.T "btn.copy"}}" aria-label="{{$.T "btn.copy"}}: {{.ID}}"></button></span>
+<span>{{$.T "info.type"}}</span><span>{{.Type}}</span>
+{{with .Description}}<span>{{$.T "info.description"}}</span><span>{{linkify .}}</span>{{end}}
+{{with .Tags}}<span>{{$.T "info.tags"}}</span><span>{{template "tags" ($.TagLinks .)}}</span>{{end}}
+{{with $.PagesFor .Tags}}<span>{{$.T "info.pages"}}</span><span>{{template "pages" .}}</span>{{end}}
+</div>
 {{with .LastCheck}}{{with .Table}}
-<table class="samples">
+<table class="samples keep">
 {{with .Common}}<thead><tr><th colspan="3"><code>{{.}}</code></th></tr></thead>{{end}}
-<tbody>{{range .Rows}}<tr><td class="state">{{if .OK}}{{template "dot" "green"}}{{else}}{{template "dot" "red"}}{{end}}</td><td><code>{{.Labels}}</code></td><td class="num"><code>{{.Value}}</code></td></tr>{{end}}</tbody>
+<tbody>{{range .Rows}}<tr><td class="state">{{if .OK}}{{template "dot" ($.D "green")}}{{else}}{{template "dot" ($.D "red")}}{{end}}</td><td><code>{{.Labels}}</code></td><td class="num"><code>{{.Value}}</code></td></tr>{{end}}</tbody>
 </table>{{end}}{{end}}
-<details class="config"><summary><h2>configuration</h2></summary>
-<table class="config">
-<tbody>{{range $.Config}}<tr><th>{{.Key}}</th><td><code>{{linkify .Value}}</code>{{if .IsURL}} <button type="button" class="copy" data-copy="{{.Value}}" title="copy" aria-label="copy {{.Key}}">⧉</button>{{end}}</td></tr>{{end}}
+<details class="config" id="config"><summary><h2>{{$.T "sec.config"}}</h2></summary>
+<table class="config keep">
+<tbody>{{range $.Config}}<tr><th>{{.Key}}</th><td><code>{{linkify .Value}}</code>{{if .IsURL}} <button type="button" class="round copy" data-copy="{{.Value}}" title="{{$.T "btn.copy"}}" aria-label="{{$.T "btn.copy"}}: {{.Key}}"></button>{{end}}</td></tr>{{end}}
 {{with $.Cfg}}<tr><th>interval</th><td><code>{{.Interval}}</code></td></tr>
 {{with .Grace}}<tr><th>grace</th><td><code>{{.}}</code></td></tr>{{end}}
 {{if .RetryCount}}<tr><th>retry_count</th><td><code>{{.RetryCount}}</code></td></tr><tr><th>retry_interval</th><td><code>{{.RetryInterval}}</code></td></tr>{{end}}
@@ -22,8 +31,11 @@ checked {{template "times" .}}{{with .LastCheck}} in {{.Duration}}{{end}}{{with 
 </table>
 </details>
 {{end}}
-<h2>audit log</h2>
-<table class="audit">
-<tbody>{{range .Log}}<tr><td class="ev">{{template "evicon" .}}</td><td class="muted ts">{{template "ts" .Time}}</td><td><code>{{linkify .Message}}</code></td></tr>{{end}}</tbody>
+<h2>{{.T "sec.log"}}</h2>
+<table class="log">
+<thead><tr><th><span class="sr">{{.T "col.event"}}</span></th><th>{{.T "col.time"}}</th><th>{{.T "col.message"}}</th></tr></thead>
+<tbody>{{range .Log}}<tr><td class="evt">{{if eq .Event "state"}}{{template "dot" ($.D .State)}}{{else}}<i class="icon-{{evicon .Event}}" role="img" aria-label="{{.Event}}" title="{{.Event}}"></i>{{end}}</td><td class="muted ts">{{template "ts" .Time}}</td><td><code>{{linkify .Message}}</code></td></tr>{{end}}</tbody>
 </table>
-</main>{{end}}
+</div>{{end}}
+
+{{define "keys"}}{{if .Edit}} · <kbd>e</kbd> {{.T "key.edit"}} · <kbd>r</kbd> {{.T "key.check"}} · <kbd>p</kbd> {{.T "key.pause"}}{{end}} · <kbd>Esc</kbd> {{.T "key.back"}}{{end}}

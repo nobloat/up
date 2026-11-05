@@ -49,6 +49,8 @@ func (a *App) auth(h http.Handler) http.Handler {
 				w.Header().Set("WWW-Authenticate", `Basic realm="][• up", charset="UTF-8"`)
 			}
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		case u.Role == none && r.Method == http.MethodGet && !wantsJSON(r) && !strings.HasPrefix(r.URL.Path, "/api/"):
+			a.errPage(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)), http.StatusForbidden, "")
 		case u.Role == none:
 			http.Error(w, "forbidden", http.StatusForbidden)
 		default:

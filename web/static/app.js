@@ -1,12 +1,12 @@
+// up's own behavior; nobloat/ui's ui.js (loaded before) does theme, keys, palette, dialogs, autosave, copy and morph.
+// Live updates: /events streams the page's #live block, list rows and the chips as the monitors change.
 const $ = selector => document.querySelector(selector);
-
-const main = () => $('main');
+const T = window.T;
+const live = () => $('#live');
 const searchInput = $('#q');
 const onListPage = () => location.pathname === '/';
 
-function parseHTML(html) {
-  return new DOMParser().parseFromString(html, 'text/html');
-}
+const parseHTML = html => new DOMParser().parseFromString(html, 'text/html');
 
 function shortDuration(seconds) {
   if (seconds < 60) return seconds + 's';
@@ -15,152 +15,110 @@ function shortDuration(seconds) {
   return Math.floor(seconds / 86400) + 'd';
 }
 
+// title and favicon follow the worst state; the logo's dot follows it in app.css
 function syncOverallState() {
-  const red = Number(main().dataset.red);
-  const state = main().dataset.state;
-  document.title = red ? `][ up (${red} failing)` : '][ up';
-  $('#favicon').href = state === 'green' ? '/static/favicon.svg' : `/static/favicon-${state}.svg`;
-  $('header .mark').setAttribute('class', 'mark ' + state);
+  const el = live();
+  if (!el) return;
+  const red = Number(el.dataset.red), state = el.dataset.state;
+  const base = `${document.title.split(' · ')[0]} · ${el.dataset.title}`;
+  document.title = red ? `${base} (${T['js.up.failing'].replace('{n}', red)})` : base;
+  $('link[rel=icon]').href = state === 'green' ? '/static/favicon.svg' : `/static/favicon-${state}.svg`;
 }
 
-function morph(current, next) {
-  if (current.nodeName !== next.nodeName) {
-    current.replaceWith(next);
-    return;
-  }
-  if (current.nodeType !== Node.ELEMENT_NODE) {
-    if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
-    return;
-  }
-  for (const {name} of [...current.attributes]) {
-    const keep = next.hasAttribute(name) || name === 'open';
-    if (!keep) current.removeAttribute(name);
-  }
-  for (const {name, value} of next.attributes) {
-    if (current.getAttribute(name) !== value) current.setAttribute(name, value);
-  }
-  const currentChildren = [...current.childNodes];
-  const nextChildren = [...next.childNodes];
-  nextChildren.forEach((child, i) => {
-    if (currentChildren[i]) morph(currentChildren[i], child);
-    else current.append(child);
-  });
-  currentChildren.slice(nextChildren.length).forEach(child => child.remove());
+// morph keeps focus; open <details> stay open across a re-render
+function patch(current, next) {
+  current.querySelectorAll('details[open][id]').forEach(d => next.querySelector('#' + CSS.escape(d.id))?.setAttribute('open', ''));
+  morph(current, next);
 }
 
-let selected = -1;
+// ---- live updates ------------------------------------------------------------------------------
+const conn = document.createElement('div');
+conn.className = 'conn';
+conn.setAttribute('role', 'alert');
+conn.textContent = T['js.up.conn'];
+conn.hidden = true;
+document.body.prepend(conn);
 
-const rows = () => [...document.querySelectorAll('tr[data-href]')];
-
-function markSelected() {
-  rows().forEach((row, i) => row.classList.toggle('sel', i === selected));
-}
-
-function select(index) {
-  const all = rows();
-  selected = Math.max(0, Math.min(index, all.length - 1));
-  markSelected();
-  all[selected]?.scrollIntoView({block: 'nearest'});
-}
-
-const disconnected = $('#conn');
 let stream;
 let retryDelay = 1000;
 
 function connect() {
+  if (!live()) return; // pages without live content (edit, settings) need no stream
   stream?.close();
   const url = new URL('/events' + location.search, location.origin);
   url.searchParams.set('path', location.pathname);
   stream = new EventSource(url);
-
   stream.onopen = () => {
-    disconnected.hidden = true;
+    conn.hidden = true;
     retryDelay = 1000;
   };
   stream.onerror = () => {
-    disconnected.hidden = false;
+    conn.hidden = false;
     if (stream.readyState === EventSource.CLOSED) {
       setTimeout(connect, retryDelay);
       retryDelay = Math.min(retryDelay * 2, 10000);
     }
   };
   stream.onmessage = e => notify(JSON.parse(e.data));
-  stream.addEventListener('main', e => replaceMain(e.data));
-  stream.addEventListener('head', e => updateListHead(JSON.parse(e.data)));
-  stream.addEventListener('row', e => updateListRow(JSON.parse(e.data)));
+  stream.addEventListener('main', e => {
+    patch(live(), parseHTML(e.data).querySelector('#live'));
+    syncOverallState();
+  });
+  stream.addEventListener('head', e => {
+    const {red, state, html} = JSON.parse(e.data);
+    live().dataset.red = red;
+    live().dataset.state = state;
+    morph($('nav.chips'), parseHTML(html).querySelector('nav'));
+    syncOverallState();
+  });
+  stream.addEventListener('row', e => {
+    const {name, html} = JSON.parse(e.data);
+    const tbody = $('#live tbody');
+    const existing = [...tbody.rows].find(row => row.dataset.name === name);
+    const row = html && parseHTML(`<table><tbody>${html}</tbody></table>`).querySelector('tr');
+    if (!row) existing?.remove();
+    else if (existing) morph(existing, row);
+    else tbody.insertBefore(row, [...tbody.rows].find(r => Number(r.dataset.pos) > Number(row.dataset.pos)) || null);
+  });
 }
 
-function replaceMain(html) {
-  morph(main(), parseHTML(html).querySelector('main'));
-  markSelected();
-  syncOverallState();
-}
+addEventListener('pagehide', () => stream?.close());
 
-function updateListHead({red, state, html}) {
-  main().dataset.red = red;
-  main().dataset.state = state;
-  morph($('nav.chips'), parseHTML(html).querySelector('nav'));
-  syncOverallState();
-}
-
-function updateListRow({name, html}) {
-  const tbody = $('main tbody');
-  const existing = [...tbody.rows].find(row => row.dataset.name === name);
-  const row = html && parseHTML(`<table><tbody>${html}</tbody></table>`).querySelector('tr');
-  if (!row) {
-    existing?.remove();
-  } else if (existing) {
-    morph(existing, row);
-  } else {
-    const before = [...tbody.rows].find(r => Number(r.dataset.pos) > Number(row.dataset.pos));
-    tbody.insertBefore(row, before || null);
-  }
-  markSelected();
-}
-
-addEventListener('pagehide', () => stream.close());
-addEventListener('pageshow', e => {
-  if (!e.persisted) return;
-  disconnected.hidden = true;
-  connect();
-});
-
-const bell = $('#notify');
+// ---- browser notifications: the toggle lives on the settings page and in the palette -------------
+const readSetting = key => { try { return localStorage.getItem(key); } catch { return null; } };
+const writeSetting = (key, value) => { try { value ? localStorage.setItem(key, value) : localStorage.removeItem(key); } catch {} };
 let notificationsWanted = readSetting('notify') === 'on';
-
 const notificationsOn = () => notificationsWanted && window.Notification && Notification.permission === 'granted';
 
 function notify(event) {
-  if (event.important && notificationsOn()) {
-    new Notification('up', {body: `${event.monitor}: ${event.old} -> ${event.state}`});
-  }
+  if (event.important && notificationsOn()) new Notification('up', {body: `${event.monitor}: ${event.old} → ${event.state}`});
 }
 
+const bell = $('#notify');
 function showBell() {
+  if (!bell) return;
   const on = notificationsOn();
-  bell.classList.toggle('on', on);
   bell.setAttribute('aria-pressed', on);
-  if (Notification.permission === 'denied') bell.title = 'notifications blocked in the browser settings';
-  else if (on) bell.title = 'notifications on (click to mute)';
-  else bell.title = 'notifications off (click to enable)';
-  bell.setAttribute('aria-label', bell.title);
+  bell.disabled = !window.Notification || Notification.permission === 'denied';
+  bell.querySelector('span').textContent = !window.Notification ? T['js.up.notify.unsupported']
+    : Notification.permission === 'denied' ? T['js.up.notify.blocked'] : T[on ? 'js.up.notify.on' : 'js.up.notify.off'];
 }
 
-if (window.Notification) {
-  bell.onclick = async () => {
-    const wasOn = notificationsOn();
-    if (!wasOn && Notification.permission === 'default') await Notification.requestPermission();
-    notificationsWanted = !wasOn && Notification.permission === 'granted';
-    writeSetting('notify', notificationsWanted ? 'on' : 'off');
-    showBell();
-  };
+async function toggleNotifications() {
+  if (!window.Notification) return;
+  const wasOn = notificationsOn();
+  if (!wasOn && Notification.permission === 'default') await Notification.requestPermission();
+  notificationsWanted = !wasOn && Notification.permission === 'granted';
+  writeSetting('notify', notificationsWanted ? 'on' : 'off');
   showBell();
-  bell.hidden = false;
 }
 
-const clearButton = $('#clear');
-let searchTimer;
+if (bell) bell.onclick = toggleNotifications;
+showBell();
+if (window.Notification) window.commands = [...(window.commands || []), {label: T['js.up.notify.cmd'], run: toggleNotifications}];
 
+// ---- search: on the list, typing filters live (the URL keeps q, state and tags) -----------------------
+let searchTimer;
 function search() {
   clearTimeout(searchTimer);
   const url = new URL(location);
@@ -171,58 +129,46 @@ function search() {
   connect();
 }
 
-function showClearButton() {
-  clearButton.hidden = !searchInput.value;
+if (searchInput) {
+  searchInput.addEventListener('input', () => {
+    if (!onListPage()) return;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(search, 150);
+  });
+  searchInput.addEventListener('keydown', e => { // Esc empties the search first, then leaves the field
+    if (e.key !== 'Escape' || !searchInput.value) return;
+    e.stopPropagation();
+    searchInput.value = '';
+    if (onListPage()) search();
+  });
+  searchInput.form.addEventListener('submit', e => {
+    if (!onListPage()) return;
+    e.preventDefault();
+    search();
+  });
 }
-
-function clearSearch() {
-  searchInput.value = '';
-  showClearButton();
-  searchInput.focus();
-  if (onListPage()) search();
-}
-
-clearButton.onclick = clearSearch;
-
-searchInput.addEventListener('input', () => {
-  showClearButton();
-  if (!onListPage()) return;
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(search, 150);
-});
 
 addEventListener('popstate', () => {
   if (!onListPage()) return;
-  searchInput.value = new URL(location).searchParams.get('q') || '';
-  showClearButton();
+  if (searchInput) searchInput.value = new URL(location).searchParams.get('q') || '';
   connect();
 });
 
+// filter chips and tags on the list swap the list in place
 document.addEventListener('click', e => {
   const filter = e.target.closest('a[href^="/?"], a[href="/"]');
   const plainClick = !e.button && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
-  if (!filter || !onListPage() || !main().contains(filter) || !plainClick) return;
+  if (!filter || !onListPage() || !live()?.contains(filter) || !plainClick) return;
   e.preventDefault();
   history.pushState(null, '', filter.href);
-  selected = -1;
   connect();
 });
 
-document.addEventListener('click', e => {
-  const button = e.target.closest('button.copy');
-  if (!button) return;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(button.dataset.copy).then(() => button.textContent = '✓');
-  } else {
-    getSelection().selectAllChildren(button.previousElementSibling);
-  }
-});
-
+// ---- pause dialog: reason and an optional end ------------------------------------------------------
 const dialog = $('#pause-dialog');
 const dialogForm = dialog.querySelector('form');
 const endChoice = () => dialogForm.elements.end.value;
 const endInputs = {for: dialogForm.elements.for, at: $('#pause-at')};
-
 const durationUnits = {d: 864e5, h: 36e5, m: 6e4, s: 1e3};
 
 function parseDurationMs(text) {
@@ -243,14 +189,13 @@ function describePauseEnd() {
   const end = pauseEnd();
   const seconds = end && Math.round((end - Date.now()) / 1000);
   const inPast = end && seconds <= 0;
-  endInputs.at.setCustomValidity(endChoice() === 'at' && inPast ? 'pick a time in the future' : '');
-
+  endInputs.at.setCustomValidity(endChoice() === 'at' && inPast ? T['js.up.pause.future'] : '');
   let text = '';
-  if (!endChoice()) text = 'stays paused until you resume it';
-  else if (inPast) text = 'that is in the past';
+  if (!endChoice()) text = T['js.up.pause.manual'];
+  else if (inPast) text = T['js.up.pause.past'];
   else if (end) {
     const when = end.toLocaleString([], {weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
-    text = `→ resumes ${when} (in ${shortDuration(seconds)})`;
+    text = '→ ' + T['js.up.pause.resumes'].replace('{when}', when).replace('{in}', shortDuration(seconds));
   }
   $('#pause-end').textContent = text;
 }
@@ -277,122 +222,53 @@ for (const [choice, input] of Object.entries(endInputs)) {
   };
 }
 
-function preparePauseSubmit() {
-  const at = endInputs.at.value;
-  if (endChoice() !== 'for') endInputs.for.value = '';
-  dialogForm.elements.until.value = endChoice() === 'at' && at ? new Date(at).toISOString() : '';
-}
-
 function checkNow(form) {
-  form.classList.add('busy');
-  form.closest('tr, main')?.classList.add('checking');
+  form.querySelector('button').setAttribute('aria-busy', 'true');
   fetch(form.action, {method: 'POST'});
 }
 
+// capture: runs before ui.js's spinner and confirmation
 document.addEventListener('submit', e => {
   const form = e.target;
-  if (form.getAttribute('role') === 'search' && onListPage()) {
+  if (form.classList.contains('pause')) {
     e.preventDefault();
-    search();
-  } else if (form.classList.contains('pause')) {
-    e.preventDefault();
+    e.stopImmediatePropagation();
     openPauseDialog(form);
   } else if (form === dialogForm) {
-    preparePauseSubmit();
+    const at = endInputs.at.value;
+    if (endChoice() !== 'for') endInputs.for.value = '';
+    dialogForm.elements.until.value = endChoice() === 'at' && at ? new Date(at).toISOString() : '';
   } else if (form.classList.contains('check')) {
     e.preventDefault();
+    e.stopImmediatePropagation();
     checkNow(form);
   }
-});
+}, true);
 
-function backToList() {
-  if (onListPage()) return;
-  const ref = document.referrer && new URL(document.referrer);
-  if (ref && ref.origin === location.origin && ref.pathname === '/') history.back();
-  else location.assign('/');
-}
-
+// ---- new: the type picks a template ----------------------------------------------------------------
 document.addEventListener('change', e => {
   const select = e.target;
   if (select.id !== 'conf-type') return;
   const conf = select.form.conf;
   const untouched = [...select.options].some(o => o.dataset.conf === conf.value);
-  if (untouched || confirm(`Replace your changes with the ${select.value} template?`)) conf.value = select.selectedOptions[0].dataset.conf;
+  if (untouched || confirm(T['js.up.replace'].replace('{type}', select.value))) conf.value = select.selectedOptions[0].dataset.conf;
   else select.value = conf.dataset.type ?? select.options[0].value;
   conf.dataset.type = select.value;
   select.form.kind.value = select.selectedOptions[0].dataset.kind;
 });
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.form?.classList.contains('edit')) {
-    e.preventDefault();
-    e.target.form.requestSubmit();
-    return;
-  }
-  if (dialog.open || e.ctrlKey || e.metaKey || e.altKey) return;
-
-  if (e.target.matches('input, select, textarea')) {
-    if (e.key !== 'Escape') return;
-    if (e.target === searchInput && searchInput.value) clearSearch();
-    else e.target.blur();
-    return;
-  }
-
-  const all = rows();
-  const scope = all.length ? all[selected] : main();
-  const shortcuts = {
-    '/': () => searchInput.focus(),
-    j: () => select(selected + 1),
-    k: () => select(selected - 1),
-    Enter: () => { if (all[selected]) location.href = all[selected].dataset.href; },
-    c: () => scope?.querySelector('form.check')?.requestSubmit(),
-    p: () => scope?.querySelector('form.pause, form.resume')?.requestSubmit(),
-    n: () => $('#new')?.click(),
-    e: () => $('a.edit')?.click(),
-    Escape: () => $('a.cancel') ? $('a.cancel').click() : backToList(),
-  };
-  const action = shortcuts[e.key];
-  if (!action) return;
-  e.preventDefault();
-  action();
-});
-
-const themeButton = $('#theme');
-const root = document.documentElement;
-const themes = {
-  '': {icon: '◐', name: 'auto', next: 'light'},
-  light: {icon: '☀︎', name: 'light', next: 'dark'},
-  dark: {icon: '☾', name: 'dark', next: ''},
+// ---- keys: r check now, p pause or resume (the selected row, else the page); Ctrl+Enter saves -----------
+const scope = () => $('#live tr.sel') || live();
+window.pageKeys = {
+  r: () => scope()?.querySelector('form.check')?.requestSubmit(),
+  p: () => { const f = scope()?.querySelector('form.pause, form.resume'); if (!f) return false; f.requestSubmit(); },
+  'C-Enter': () => {
+    const f = $('form.edit');
+    if (!f) return false;
+    if (f.matches('[data-autosave]')) f.conf.dispatchEvent(new Event('change', {bubbles: true}));
+    else f.requestSubmit();
+  },
 };
-const currentTheme = () => themes[root.dataset.theme || ''];
-
-function showTheme() {
-  const theme = currentTheme();
-  themeButton.textContent = theme.icon;
-  themeButton.title = `theme: ${theme.name} (click: ${themes[theme.next].name})`;
-  themeButton.setAttribute('aria-label', `color theme: ${theme.name}`);
-}
-
-themeButton.onclick = () => {
-  const next = currentTheme().next;
-  if (next) root.dataset.theme = next;
-  else delete root.dataset.theme;
-  writeSetting('theme', next);
-  showTheme();
-};
-showTheme();
-themeButton.hidden = false;
-
-function readSetting(key) {
-  try { return localStorage.getItem(key); } catch { return null; }
-}
-
-function writeSetting(key, value) {
-  try {
-    if (value) localStorage.setItem(key, value);
-    else localStorage.removeItem(key);
-  } catch {}
-}
 
 function updateRelativeTimes() {
   for (const el of document.querySelectorAll('time[data-rel]')) {
@@ -404,6 +280,5 @@ function updateRelativeTimes() {
 }
 
 setInterval(updateRelativeTimes, 1000);
-showClearButton();
 syncOverallState();
 connect();

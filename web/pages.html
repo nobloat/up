@@ -1,0 +1,14 @@
+{{define "main"}}<div class="pagehead"><h1>{{.T "title.pages"}}</h1>{{if .Edit}}<a class="btn pri new" href="/new?kind=page" data-key="c">{{.T "btn.new.page"}} <kbd>c</kbd></a>{{end}}</div>
+{{if .PageRows}}<table>
+<thead><tr><th><span class="sr">{{.T "col.state"}}</span></th><th>{{.T "col.title"}}</th><th>{{.T "col.tag"}}</th><th class="num">{{.T "col.monitors"}}</th>{{if .EditPages}}<th class="num"><span class="sr">{{.T "col.actions"}}</span></th>{{end}}</tr></thead>
+<tbody>{{range .PageRows}}<tr id="PAG-{{upper .Slug}}" data-href="/status/{{.Slug}}">
+<td>{{template "dot" ($.D .State)}}</td>
+<td><a href="/status/{{.Slug}}">{{.Title}}</a><br><small class="muted">/status/{{.Slug}}</small></td>
+<td><a class="tag" href="/?tag={{.Tag}}">{{.Tag}}</a></td>
+<td class="num">{{.N}}</td>
+{{if $.EditPages}}<td class="num">{{if .Edit}}<a class="btn edit" href="/edit/page/{{.Slug}}" aria-label="{{$.T "btn.edit"}}: {{.Title}}">{{$.T "btn.edit"}}</a>{{end}}</td>{{end}}
+</tr>{{end}}</tbody>
+</table>{{else}}<div class="empty"><p>{{.T "pages.none"}}</p>{{if .Edit}}<a class="btn new" href="/new?kind=page">{{.T "btn.new.page"}}</a>{{end}}</div>{{end}}
+<p class="muted"><small>{{.T "pages.hint"}}</small></p>{{end}}
+
+{{define "keys"}} · <kbd>j</kbd>/<kbd>k</kbd> {{.T "key.row"}} · <kbd>Enter</kbd> {{.T "key.open"}}{{if .Edit}} · <kbd>c</kbd> {{.T "key.new"}}{{end}}{{end}}

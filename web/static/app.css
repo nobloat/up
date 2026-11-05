@@ -1,0 +1,36 @@
+/* up's own styles on top of nobloat/ui's ui.css; colors only through ui.css tokens */
+
+/* the logo's dot shows the worst state of the monitors on the page, like the favicon */
+:root:has(#live[data-state="green"]) header.app .mark text { --c: var(--green); fill: var(--c-text); }
+:root:has(#live[data-state="yellow"]) header.app .mark text { --c: var(--yellow); fill: var(--c-text); }
+:root:has(#live[data-state="red"]) header.app .mark text { --c: var(--red); fill: var(--c-text); }
+
+
+/* list: rows come and go live, so the empty note and the table switch in CSS */
+table:not(:has(tbody tr)) { display: none; }
+table:has(tbody tr) + .empty { display: none; }
+td .check .lbl { display: none; } /* icon-only in rows; the aria-label names it */
+td.state { width: 2.6rem; white-space: nowrap; }
+.times { white-space: nowrap; }
+.light { display: inline-flex; }
+.is-paused .dot { opacity: .5; } /* paused: the state still shows, pale, next to the pause icon */
+.paused { color: var(--muted); margin-right: .45em; }
+.tag.on { text-decoration: underline; text-underline-offset: 3px; }
+.tag.on::after { content: " ×"; color: var(--muted); }
+
+/* detail */
+details.config summary h2 { display: inline; }
+.log td.evt { width: 2rem; text-align: center; }
+.log td.evt .dot { margin-right: 0; }
+.log td.ts { width: 1%; white-space: nowrap; }
+.info + .row { margin-top: 1rem; }
+
+/* pause dialog: the end choices line up their inputs */
+.ends { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: .5rem .5em; }
+.ends label { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; justify-items: start; min-height: 2.1rem; }
+.form .ends input:not([type=radio]) { width: auto; }
+#pause-end { min-height: 1.4em; margin-top: 0; }
+
+/* public status page: a paused card has a dashed top */
+.card.is-paused { border-top-style: dashed; }
+.form > label[for=conf] { align-self: start; padding-top: .4rem; } /* the label of the tall config field sits at its top */

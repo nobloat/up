@@ -1,0 +1,7 @@
+{{define "main"}}<div class="error">
+<p class="code">{{.Title}}</p>
+<h1>{{.ErrTitle}}</h1>
+<p>{{.ErrText}}</p>
+{{with .Ref}}<p><code class="id">{{.}}</code> <button type="button" class="round copy" data-copy="{{.}}" title="{{$.T "btn.copy"}}" aria-label="{{$.T "btn.copy"}}: {{.}}"></button></p>{{end}}
+<div class="row"><a class="btn pri" href="/">{{.T "err.monitors"}}</a>{{if .Ref}}<a class="btn" href="{{.Here}}">{{.T "err.retry"}}</a>{{else}}<button type="button" data-palette>{{.T "palette.search"}} <kbd>Ctrl K</kbd></button>{{end}}{{if eq .Code 403}}<a class="btn" href="/settings">{{.T "err.account"}}</a>{{end}}</div>
+</div>{{end}}
