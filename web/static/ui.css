@@ -112,7 +112,7 @@ button.pri:hover, .btn.pri:hover { border-color: var(--accent); background: colo
 button.pri, .btn.pri { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(--c-text); }
 /* every create, edit, delete and copy button carries its icon (::before, from the icon set below) */
-:is(button, .btn, summary):is(.new, .edit, .del, .copy)::before { content: ""; display: inline-block; width: 1em; height: 1em; margin-right: .45em; vertical-align: -.15em; background: currentColor;
+:is(button, .btn, summary, .round):is(.new, .edit, .del, .copy)::before { content: ""; display: inline-block; width: 1em; height: 1em; margin-right: .45em; vertical-align: -.15em; background: currentColor;
   mask: var(--icon) center / contain no-repeat; }
 .round:is(.new, .edit, .del, .copy)::before { margin: 0; }
 .new { --icon: var(--icon-plus); } .edit { --icon: var(--icon-edit); } .del { --icon: var(--icon-trash); } .copy { --icon: var(--icon-copy); }
@@ -172,6 +172,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='7' cy='7' r='4.5'/%3E%3Cpath d='M10.5 10.5l3 3'/%3E%3C/svg%3E");
   --icon-send: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M14 2 7 9M14 2l-4.5 12L7 9 2 6.5z'/%3E%3C/svg%3E");
   --icon-star: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpolygon points='8.00,2.40 9.53,6.50 13.90,6.68 10.47,9.40 11.64,13.62 8.00,11.20 4.36,13.62 5.53,9.40 2.10,6.68 6.47,6.50'/%3E%3C/svg%3E");
+  --icon-stop: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4.5 4.5h7v7h-7z'/%3E%3C/svg%3E");
   --icon-sun: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='2.8'/%3E%3Cpath d='M12.60 8.00L14.20 8.00M11.25 11.25L12.38 12.38M8.00 12.60L8.00 14.20M4.75 11.25L3.62 12.38M3.40 8.00L1.80 8.00M4.75 4.75L3.62 3.62M8.00 3.40L8.00 1.80M11.25 4.75L12.38 3.62'/%3E%3C/svg%3E");
   --icon-tag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6.5 2.5 5 13.5M11 2.5 9.5 13.5M3 6h10.5M2.5 10H13'/%3E%3C/svg%3E");
   --icon-trash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 4.5h11M6 4.5v-2h4v2M4 4.5l.8 9h6.4l.8-9M6.8 7v4.5M9.2 7v4.5'/%3E%3C/svg%3E");
@@ -230,6 +231,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-search { --icon: var(--icon-search); }
 .icon-send { --icon: var(--icon-send); }
 .icon-star { --icon: var(--icon-star); }
+.icon-stop { --icon: var(--icon-stop); }
 .icon-sun { --icon: var(--icon-sun); }
 .icon-tag { --icon: var(--icon-tag); }
 .icon-trash { --icon: var(--icon-trash); }
@@ -640,6 +642,7 @@ details.audit { padding: .6rem 1rem; }
   .form .hint, .form .err, .form .drop, .form .drop + .err { grid-column: 1; }
   /* phones: create, edit, delete and copy buttons show only their icon; the text stays for screen readers (font-size 0, icon sized in rem) */
   :is(button, .btn):is(.new, .edit, .del, .copy):not(.round):not(dialog *) { font-size: 0; padding: .35rem .6rem; line-height: 0; }
+  :is(button, .btn):is(.new, .edit, .del, .copy):not(.round):not(dialog *) kbd { display: none; }
   :is(button, .btn):is(.new, .edit, .del, .copy):not(.round):not(dialog *)::before { width: 1.05rem; height: 1.05rem; margin: 0; vertical-align: middle; }
   header.app .prefs { display: none; } /* language and theme live on the settings page on phones */
   .crumbs li:not(:nth-last-child(2)) { display: none; } .crumbs li + li::before { content: none; } .crumbs a::before { content: "← "; }
