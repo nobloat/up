@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"time"
 )
@@ -20,6 +21,8 @@ type row struct {
 	Message string
 }
 
+// appendRow appends one complete record and syncs it; the file is never rewritten.
+// ponytail: audit.csv grows forever; split per year if it outgrows a few MB
 func appendRow(path string, r row) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
 	if err != nil {
@@ -57,33 +60,46 @@ func readLog(path string) ([]row, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	if !slices.Equal(header, auditHeader) {
-		return nil, errors.New("invalid audit header")
+		return nil, fmt.Errorf("%s:1: invalid audit header", path)
 	}
 	var rows []row
+	line := 1
 	for {
 		r, err := reader.Read()
 		if err == io.EOF {
 			var last [1]byte
 			if _, err := f.ReadAt(last[:], reader.InputOffset()-1); err != nil {
-				return rows, err
+				return rows, fmt.Errorf("%s: %w", path, err)
 			}
 			if last[0] != '\n' {
-				return rows, errors.New("unterminated audit record")
+				return rows, fmt.Errorf("%s:%d: unterminated audit record", path, line)
 			}
 			return rows, nil
 		}
 		if err != nil {
-			return rows, err
+			return rows, fmt.Errorf("%s: %w", path, err) // a csv.ParseError carries the line
 		}
+		line, _ = reader.FieldPos(0)
 		t, err := time.Parse(time.RFC3339, r[0])
 		if err != nil {
-			return rows, err
+			return rows, fmt.Errorf("%s:%d: %w", path, line, err)
 		}
 		rows = append(rows, row{t, r[1], r[2], r[3]})
 	}
+}
+
+// checkData reads every audit log in dir like startup does; a missing dir has none.
+func checkData(dir string) (errs []error) {
+	files, _ := filepath.Glob(filepath.Join(dir, "*.csv"))
+	for _, f := range files {
+		if _, err := readLog(f); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errs
 }
 
 type restored struct {

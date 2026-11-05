@@ -52,7 +52,25 @@ up.nobloat.org {
 
 - `./data` must be writable by uid 65534: `sudo chown 65534:65534 data`
 - `up -check -config <dir>` validates a config, e.g. in CI (exit code 1 on any error)
-- A damaged audit log stops startup instead of being reset: back it up and repair it
+- A damaged audit log stops startup instead of being reset (`-check` reports it with file and line): back it up and repair it
+
+### Backup
+
+The data dir and the config dir are the backup. The UI writes the config dir, so back it up too.
+
+- Copy both with any tool while `up` runs, full or incremental (`rsync -a --delete`, restic, borg, volume snapshots): audit logs only grow by appended, synced records, and config files are replaced by atomic renames, so a copy is never half a file. Skip `.tmp-*` files.
+- Or export through `up` for a consistent cut (admin): `GET /api/export` streams a tar.gz with `manifest.json` first (app, version, created, every file with path, size, mtime, sha256), then `config/<file>` for every file of the config dir, then `data/<file>`. `?since=<created of an earlier manifest>` sends only the files changed since then, plus the full manifest, so deletions show.
+
+```sh
+export UP_URL=https://up.nobloat.org UP_USER=admin UP_PASSWORD=…
+up export > up-full.tgz
+up export -since 2026-11-05T10:00:00.123456789Z > up-inc.tgz   # created from up-full.tgz's manifest.json
+up restore -data ./data -config ./config up-full.tgz up-inc.tgz  # offline
+```
+
+`up restore` needs an empty or missing data dir, applies the archives in order (deleting files missing from each manifest), never overwrites an existing config file, verifies sha256 against the last manifest and runs the checks of `-check`. Without `-config` only the data is restored. Untarring by hand works too.
+
+Formats: `up.conf` and `<name>.<kind>.conf` are `key = value` text; `data/<monitor>.csv` (dots in the name become `_`) is CSV with the header `timestamp,event,state,message`.
 
 ## Configuration
 
@@ -86,7 +104,7 @@ heartbeat.urls = https://hc-ping.com/<uuid>
 | Option | Default | |
 |---|---|---|
 | `base_url` | required | public URL, for links in notifications |
-| `data_dir` | required | audit logs |
+| `data_dir` | required | audit logs, one CSV per monitor |
 | `auth.user`, `auth.password` | required without `role.*` | basic auth for the UI and API, always admin |
 | `trusted_proxies` | | CIDRs whose `Remote-User` / `Remote-Groups` headers are believed, see [single sign-on](#single-sign-on) |
 | `role.viewer`, `role.editor`, `role.admin` | | IdP groups per role |

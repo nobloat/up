@@ -50,6 +50,14 @@ func cli(args []string) int {
 	fs := flag.NewFlagSet("up", flag.ContinueOnError)
 	path := fs.String("config", "config", "config directory")
 	check := fs.Bool("check", false, "validate the config and exit")
+	if len(args) > 0 {
+		switch args[0] {
+		case "export":
+			return cliExport(args[1:])
+		case "restore":
+			return cliRestore(args[1:])
+		}
+	}
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -59,6 +67,7 @@ func cli(args []string) int {
 		return 1
 	}
 	if *check {
+		cfg.errs = append(cfg.errs, checkData(cfg.DataDir)...)
 		for _, err := range cfg.errs {
 			fmt.Fprintln(os.Stderr, err)
 		}
@@ -90,6 +99,8 @@ type App struct {
 	dial    dialFunc
 	ctx     context.Context
 	cfg     atomic.Pointer[Config]
+
+	store sync.RWMutex // every write to the data and config dirs holds RLock, an export holds Lock for a consistent cut
 
 	mu       sync.Mutex
 	monitors map[string]*Monitor

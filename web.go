@@ -51,6 +51,7 @@ func (a *App) handler() http.Handler {
 	mux.Handle("GET /api/monitors", auth(a.apiList))
 	mux.Handle("GET /api/monitors/{name}", auth(a.apiMonitor))
 	mux.Handle("POST /api/monitors/{name}/{action}", auth(a.apiAction))
+	mux.Handle("GET /api/export", auth(a.apiExport))
 	mux.HandleFunc("/push/{name}/{token}", a.handlePush)
 	mux.HandleFunc("/api/push/{token}", a.handleKumaPush)
 	mux.HandleFunc("/ping/{token}", a.handleHealthchecksPing)
@@ -670,13 +671,29 @@ func (a *App) saveConf(u *User, kind, name, conf string, create, del bool) error
 	case exists && !a.mayEdit(u, kind, name):
 		return fmt.Errorf("%s %s: not found", label, name)
 	case del:
-		return os.Remove(path)
+		a.store.RLock()
+		defer a.store.RUnlock()
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+		return syncDir(a.path)
 	}
-	tmp := path + ".tmp" // no .conf suffix: invisible to reloads
-	if err := os.WriteFile(tmp, []byte(conf), 0o600); err != nil {
+	// atomic write: a synced temp file in the same dir (no .conf suffix: invisible to reloads), validated, renamed over path, dir synced
+	f, err := os.CreateTemp(a.path, ".tmp-*")
+	if err != nil {
 		return err
 	}
+	tmp := f.Name()
 	defer os.Remove(tmp)
+	if _, err = f.WriteString(conf); err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return err
+	}
 	clean := func(err error) error { return errors.New(strings.ReplaceAll(err.Error(), tmp, filepath.Base(path))) }
 	var tags []string
 	cfg := a.cfg.Load()
@@ -723,7 +740,12 @@ func (a *App) saveConf(u *User, kind, name, conf string, create, del bool) error
 			}
 		}
 	}
-	return os.Rename(tmp, path)
+	a.store.RLock()
+	defer a.store.RUnlock()
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	return syncDir(a.path) // the rename itself survives a power cut
 }
 
 func (a *App) chips(vs []monitorView, tags []string, q string, total *int) []stateChip {

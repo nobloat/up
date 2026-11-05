@@ -102,6 +102,8 @@ func (m *Monitor) log(r row) error {
 	if r.Time.IsZero() {
 		r.Time = time.Now()
 	}
+	m.app.store.RLock() // an export waits for this append, and this append for an export
+	defer m.app.store.RUnlock()
 	if err := appendRow(m.path, r); err != nil {
 		slog.Error("writing audit log", "monitor", m.name, "err", err)
 		return err
