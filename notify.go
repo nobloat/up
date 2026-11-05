@@ -26,6 +26,14 @@ var notifierTypes = map[string]notifierType{
 
 type change struct {
 	Name, Old, New, Reason, URL string
+	Down, Up                    time.Time // set when recovering from red
+}
+
+func (c change) downtime() string {
+	if c.Down.IsZero() {
+		return ""
+	}
+	return "down since " + c.Down.UTC().Format(time.RFC3339) + " for " + fmtDuration(c.Up.Sub(c.Down).Round(time.Second))
 }
 
 type message struct {
@@ -54,7 +62,7 @@ func (msg message) text() string {
 	var b strings.Builder
 	if len(msg.Changes) > 0 {
 		for _, c := range msg.Changes {
-			fmt.Fprintf(&b, "%s: %s (%s) %s\n", c.Name, dot(c.New), c.Reason, c.URL)
+			fmt.Fprintf(&b, "%s: %s (%s) %s\n", c.Name, dot(c.New), c.Reason, strings.TrimSpace(c.downtime()+" "+c.URL))
 		}
 		return b.String()
 	}
@@ -83,6 +91,9 @@ func (m *Monitor) diff(n string) (change, bool) {
 		return change{Name: m.name, Old: prev, New: m.state, Reason: m.reason}, true
 	}
 	c := change{Name: m.name, Old: prev, New: m.state, Reason: m.reason}
+	if prev == red && m.state != red && !m.downSince.IsZero() && m.upSince.After(m.downSince) {
+		c.Down, c.Up = m.downSince, m.upSince
+	}
 	if (prev == red) != (m.state == red) {
 		return c, true
 	}

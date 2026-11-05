@@ -56,6 +56,8 @@ type Monitor struct {
 	state       string
 	reason      string
 	since       time.Time
+	downSince   time.Time // last time the monitor went red
+	upSince     time.Time // last time the monitor left red
 	failures    int
 	paused      bool
 	pauseReason string
@@ -83,7 +85,7 @@ func newMonitor(a *App, cfg *MonitorConfig, why string, rows []row) *Monitor {
 		r.state, r.reason, r.since = red, reasonNew, time.Now()
 		m.log(row{Event: "state", State: r.state, Message: r.reason})
 	}
-	m.state, m.reason, m.since = r.state, r.reason, r.since
+	m.state, m.reason, m.since, m.downSince, m.upSince = r.state, r.reason, r.since, r.downSince, r.upSince
 	m.paused, m.pauseReason, m.pausedState, m.pausedSince, m.pausedUntil = r.paused, r.pauseReason, r.pausedState, r.pausedSince, r.pausedUntil
 	m.reported, m.lastPush = r.reported, r.lastPush
 	m.failures = map[string]int{green: 0, yellow: 1, red: cfg.RetryCount + 1}[m.state]
@@ -170,6 +172,11 @@ func (m *Monitor) record(res checkResult, fatal bool) {
 	old := m.state
 	m.reason = res.Reason
 	if state != old || placeholder {
+		if state == red && (old != red || placeholder) {
+			m.downSince = res.Time
+		} else if state != red && old == red {
+			m.upSince = res.Time
+		}
 		m.state, m.since = state, res.Time
 		m.log(row{Time: res.Time, Event: "state", State: state, Message: res.Reason})
 	}

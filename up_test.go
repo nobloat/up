@@ -1109,7 +1109,7 @@ func TestIlert(t *testing.T) {
 		}
 		status.Store(200)
 		sleep(2 * time.Minute)
-		if ev := take(); !slices.Equal(ev, []string{"POST il-key RESOLVE m | m recovered: HTTP 200 | https://pp.example/monitor/m red -> green (HTTP 200)"}) {
+		if ev := take(); !slices.Equal(ev, []string{"POST il-key RESOLVE m | m recovered: HTTP 200 | https://pp.example/monitor/m red -> green (HTTP 200), down since 2000-01-01T00:02:00Z for 1h 2m"}) {
 			t.Fatalf("resolve: %q", ev)
 		}
 	})

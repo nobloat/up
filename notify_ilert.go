@@ -30,8 +30,12 @@ func (ilertNotifier) send(a *App, n *NotifierConfig, msg message) error {
 			}
 			event, summary = "RESOLVE", c.Name+" recovered: "+c.Reason
 		}
+		details := c.Old + " -> " + c.New + " (" + c.Reason + ")"
+		if !c.Down.IsZero() {
+			details += ", " + c.downtime()
+		}
 		body, _ := json.Marshal(map[string]any{"integrationKey": n.IntegrationKey, "eventType": event, "alertKey": c.Name,
-			"summary": summary, "details": c.Old + " -> " + c.New + " (" + c.Reason + ")",
+			"summary": summary, "details": details,
 			"links": []map[string]string{{"href": c.URL, "text": "up: " + c.Name}}})
 		errs = append(errs, a.httpSend(http.MethodPost, n.URL, n.Headers, body))
 	}

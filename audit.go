@@ -87,13 +87,13 @@ func readLog(path string) ([]row, error) {
 }
 
 type restored struct {
-	state, reason            string
-	since                    time.Time
-	paused                   bool
-	pauseReason, pausedState string
-	pausedSince, pausedUntil time.Time
-	lastPush                 time.Time
-	reported                 map[string]string
+	state, reason             string
+	since, downSince, upSince time.Time
+	paused                    bool
+	pauseReason, pausedState  string
+	pausedSince, pausedUntil  time.Time
+	lastPush                  time.Time
+	reported                  map[string]string
 }
 
 func restore(rows []row) restored {
@@ -101,6 +101,11 @@ func restore(rows []row) restored {
 	for _, e := range rows {
 		switch e.Event {
 		case "state":
+			if e.State == red && (r.state != red || r.reason == reasonNew) {
+				r.downSince = e.Time
+			} else if e.State != red && r.state == red {
+				r.upSince = e.Time
+			}
 			r.state, r.reason, r.since = e.State, e.Message, e.Time
 		case "paused":
 			r.paused, r.pauseReason, r.pausedState, r.pausedSince = true, e.Message, r.state, e.Time
@@ -132,8 +137,9 @@ func (u uptime) Pct() string {
 	return fmt.Sprintf("%.2f%%", *u.Percent)
 }
 
-func (u uptime) Down() string {
-	d := time.Duration(u.DowntimeSeconds) * time.Second
+func (u uptime) Down() string { return fmtDuration(time.Duration(u.DowntimeSeconds) * time.Second) }
+
+func fmtDuration(d time.Duration) string {
 	switch {
 	case d >= 24*time.Hour:
 		return fmt.Sprintf("%dd %dh", int(d.Hours())/24, int(d.Hours())%24)
