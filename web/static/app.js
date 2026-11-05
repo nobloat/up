@@ -25,10 +25,21 @@ function syncOverallState() {
   $('link[rel=icon]').href = state === 'green' ? '/static/favicon.svg' : `/static/favicon-${state}.svg`;
 }
 
+// after a re-render: phones show cells as "label … value" (ui.js labels them once at load), and the row selected with j/k stays selected
+function relabel(selected) {
+  if (selected) document.getElementById(selected)?.classList.add('sel');
+  document.querySelectorAll('#live table:not(.keep)').forEach(t => {
+    const heads = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    t.querySelectorAll('tbody tr').forEach(tr => [...tr.cells].forEach((td, i) => td.dataset.label = heads[i] ?? ''));
+  });
+}
+
 // morph keeps focus; open <details> stay open across a re-render
 function patch(current, next) {
   current.querySelectorAll('details[open][id]').forEach(d => next.querySelector('#' + CSS.escape(d.id))?.setAttribute('open', ''));
+  const selected = $('#live tr.sel')?.id;
   morph(current, next);
+  relabel(selected);
 }
 
 // ---- live updates ------------------------------------------------------------------------------
@@ -75,10 +86,12 @@ function connect() {
     const {name, html} = JSON.parse(e.data);
     const tbody = $('#live tbody');
     const existing = [...tbody.rows].find(row => row.dataset.name === name);
+    const selected = $('#live tr.sel')?.id;
     const row = html && parseHTML(`<table><tbody>${html}</tbody></table>`).querySelector('tr');
     if (!row) existing?.remove();
     else if (existing) morph(existing, row);
     else tbody.insertBefore(row, [...tbody.rows].find(r => Number(r.dataset.pos) > Number(row.dataset.pos)) || null);
+    relabel(selected);
   });
 }
 

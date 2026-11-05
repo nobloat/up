@@ -3,7 +3,7 @@
 <div class="pagehead"><h1>{{.T "title.monitors"}}</h1>{{if .Edit}}<a class="btn pri new" href="/new" data-key="c">{{.T "btn.new.monitor"}} <kbd>c</kbd></a>{{end}}</div>
 {{template "chips" .}}
 <table class="monitors">
-<thead><tr><th><span class="sr">{{.T "col.state"}}</span></th><th>{{.T "col.name"}}</th><th class="hide-phone">{{.T "col.type"}}</th><th>{{.T "col.checked"}}</th><th class="hide-phone">{{.T "col.tags"}}</th>{{if .Edit}}<th class="num"><span class="sr">{{.T "col.actions"}}</span></th>{{end}}</tr></thead>
+<thead><tr><th></th><th>{{.T "col.name"}}</th><th class="hide-phone">{{.T "col.type"}}</th><th>{{.T "col.checked"}}</th><th class="hide-phone">{{.T "col.tags"}}</th>{{if .Edit}}<th class="num"></th>{{end}}</tr></thead>
 <tbody>
 {{range .Monitors}}{{template "row" ($.Row .)}}
 {{end}}</tbody>

@@ -1,5 +1,5 @@
 {{define "main"}}<div class="error">
-<p class="code">{{.Title}}</p>
+<p class="code">{{.BaseTitle}}</p>
 <h1>{{.ErrTitle}}</h1>
 <p>{{.ErrText}}</p>
 {{with .Ref}}<p><code class="id">{{.}}</code> <button type="button" class="round copy" data-copy="{{.}}" title="{{$.T "btn.copy"}}" aria-label="{{$.T "btn.copy"}}: {{.}}"></button></p>{{end}}

@@ -1,6 +1,6 @@
 {{define "main"}}<div class="pagehead"><h1>{{.T "title.pages"}}</h1>{{if .Edit}}<a class="btn pri new" href="/new?kind=page" data-key="c">{{.T "btn.new.page"}} <kbd>c</kbd></a>{{end}}</div>
 {{if .PageRows}}<table>
-<thead><tr><th><span class="sr">{{.T "col.state"}}</span></th><th>{{.T "col.title"}}</th><th>{{.T "col.tag"}}</th><th class="num">{{.T "col.monitors"}}</th>{{if .EditPages}}<th class="num"><span class="sr">{{.T "col.actions"}}</span></th>{{end}}</tr></thead>
+<thead><tr><th></th><th>{{.T "col.title"}}</th><th>{{.T "col.tag"}}</th><th class="num">{{.T "col.monitors"}}</th>{{if .EditPages}}<th class="num"></th>{{end}}</tr></thead>
 <tbody>{{range .PageRows}}<tr id="PAG-{{upper .Slug}}" data-href="/status/{{.Slug}}">
 <td>{{template "dot" ($.D .State)}}</td>
 <td><a href="/status/{{.Slug}}">{{.Title}}</a><br><small class="muted">/status/{{.Slug}}</small></td>

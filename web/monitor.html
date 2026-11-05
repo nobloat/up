@@ -33,7 +33,7 @@
 {{end}}
 <h2>{{.T "sec.log"}}</h2>
 <table class="log">
-<thead><tr><th><span class="sr">{{.T "col.event"}}</span></th><th>{{.T "col.time"}}</th><th>{{.T "col.message"}}</th></tr></thead>
+<thead><tr><th></th><th>{{.T "col.time"}}</th><th>{{.T "col.message"}}</th></tr></thead>
 <tbody>{{range .Log}}<tr><td class="evt">{{if eq .Event "state"}}{{template "dot" ($.D .State)}}{{else}}<i class="icon-{{evicon .Event}}" role="img" aria-label="{{.Event}}" title="{{.Event}}"></i>{{end}}</td><td class="muted ts">{{template "ts" .Time}}</td><td><code>{{linkify .Message}}</code></td></tr>{{end}}</tbody>
 </table>
 </div>{{end}}

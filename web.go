@@ -406,8 +406,6 @@ type rowData struct {
 
 func (p page) Row(v monitorView) rowData { return rowData{v, p} }
 
-func (page) KindNames() map[string]string { return kindNames }
-
 func (p page) Config() []kv { return configRows(p.Cfg) }
 
 type kv struct{ Key, Value string }
