@@ -99,7 +99,7 @@ heartbeat.urls = https://hc-ping.com/<uuid>
 
 ### Single sign-on
 
-Optional: with only `auth.user` / `auth.password` everyone shares one admin login, as before. Single sign-on works the same as in [bill](../bill/ACCESS.md) and [track](../track): a proxy (Caddy `forward_auth` with Authelia, Authentik, oauth2-proxy, …) logs the user in and forwards `Remote-User` and `Remote-Groups`. `up` believes those headers only from `trusted_proxies`; anyone else needs basic auth.
+Optional: with only `auth.user` / `auth.password` everyone shares one admin login, as before. Single sign-on works the same as in bill and track: caddy's `forward_auth` asks [nobloat/auth](../auth) (or another IdP) to log the user in and forwards `Remote-User` and `Remote-Groups`. `up` believes those headers only from `trusted_proxies`; anyone else needs basic auth.
 
 ```ini
 trusted_proxies = 10.0.0.0/8
