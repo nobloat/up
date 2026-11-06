@@ -10,6 +10,10 @@
 table:not(:has(tbody tr)) { display: none; }
 table:has(tbody tr) + .empty { display: none; }
 td .check .lbl { display: none; } /* icon-only in rows; the aria-label names it */
+/* checking: only the spinner, in the button's place; the button keeps its box, so the list does not shift */
+td .check button[aria-busy="true"] { position: relative; border-color: transparent; background: none; box-shadow: none; pointer-events: none; }
+td .check button[aria-busy="true"] i { visibility: hidden; }
+td .check button[aria-busy="true"]::after { position: absolute; inset: 0; margin: auto; }
 td.state { width: 2.6rem; white-space: nowrap; }
 .times { white-space: nowrap; }
 .light { display: inline-flex; }
