@@ -15,6 +15,7 @@ td .check button[aria-busy="true"] { position: relative; border-color: transpare
 td .check button[aria-busy="true"] i { visibility: hidden; }
 td .check button[aria-busy="true"]::after { position: absolute; inset: 0; margin: auto; }
 td.state { width: 2.6rem; white-space: nowrap; }
+td.type { overflow-wrap: normal; } /* promql, metric: short words, never broken mid-word */
 .times { white-space: nowrap; }
 .light { display: inline-flex; }
 .is-paused .dot { opacity: .5; } /* paused: the state still shows, pale, next to the pause icon */

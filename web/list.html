@@ -23,7 +23,7 @@
 {{define "row"}}<tr id="{{.ID}}" data-href="/monitor/{{.Name}}" data-name="{{.Name}}" data-pos="{{.Pos}}">
 <td class="state">{{template "state" .}}</td>
 <td><a href="/monitor/{{.Name}}">{{.Name}}</a>{{with .Description}}<br><small class="muted">{{.}}</small>{{end}}</td>
-<td class="hide-phone muted">{{.Type}}</td>
+<td class="hide-phone muted type">{{.Type}}</td>
 <td class="muted"><small>{{template "times" .}}</small></td>
 <td class="hide-phone">{{template "tags" (.Page.TagLinks .Tags)}}</td>
 {{if .Page.Edit}}<td class="num">{{template "check" .}}</td>{{end}}
