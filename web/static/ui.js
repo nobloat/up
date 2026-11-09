@@ -533,25 +533,21 @@ const patch = (a, b) => {
 };
 window.morph = (a, b) => { patch(a, b); labelTables(); window.picks(); };
 
-// toasts: the page's flash messages float bottom right (full width on phones); successes fade after 5s, errors stay until closed.
-// Without JS they stay where the page put them.
-{
-  const ps = document.querySelectorAll('main .flash:is(p, div)');
-  if (ps.length) {
-    const box = document.createElement('div');
-    box.className = 'toasts';
-    box.setAttribute('role', 'status');
-    document.body.append(box);
-    for (const p of ps) {
-      const x = document.createElement('button');
-      x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', T['js.close'] || 'close');
-      x.onclick = () => p.remove();
-      p.append(x);
-      box.append(p);
-      if (p.classList.contains('ok')) setTimeout(() => { p.classList.add('out'); setTimeout(() => p.remove(), 400); }, 5000);
-    }
-  }
-}
+// toasts: every message floats bottom right (full width on phones) and always has an × to close it; successes fade after 5s,
+// errors stay until closed. toast(text, ok) is the one way apps show a client message; the page's server flashes go the same way.
+// Without JS the server flashes stay where the page put them.
+window.toast = (msg, ok) => {
+  let box = document.querySelector('.toasts');
+  if (!box) { box = document.createElement('div'); box.className = 'toasts'; box.setAttribute('role', 'status'); document.body.append(box); }
+  const p = typeof msg === 'string' ? Object.assign(document.createElement('p'), {className: 'flash' + (ok ? ' ok' : ''), textContent: msg}) : msg;
+  const x = document.createElement('button');
+  x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', T['js.close'] || 'close');
+  x.onclick = () => p.remove();
+  p.append(x);
+  box.append(p);
+  if (p.classList.contains('ok')) setTimeout(() => { p.classList.add('out'); setTimeout(() => p.remove(), 400); }, 5000);
+};
+document.querySelectorAll('main .flash:is(p, div)').forEach(p => toast(p));
 
 // back/forward always show current data: a page answering a POST becomes a plain entry (no "resubmit?"),
 // and a page restored from the back/forward cache reloads (also clears spinners)
