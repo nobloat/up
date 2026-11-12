@@ -277,7 +277,7 @@ document.addEventListener('change', async e => {
 // g+letter nav · / search · ? help · Ctrl+K or : palette · j/k rows · Enter open · h/l tabs · p/n pages · 1-9 chips · Esc up · [data-key] click
 {
   let g = false, sel = -1;
-  const rows = () => [...document.querySelectorAll('main tr[data-href]')];
+  const rows = () => [...document.querySelectorAll('main :is(tr, .rows > li)[data-href]')];
   // the selected row is part of the URL (#CUS-0042, the row's id), so reload, Back and a shared link show the same selection
   const mark = () => { rows().forEach((r, i) => r.classList.toggle('sel', i === sel)); const id = rows()[sel]?.id; if (id) history.replaceState(history.state, '', '#' + id); };
   { const i = location.hash.length > 1 ? rows().findIndex(r => r.id === decodeURIComponent(location.hash.slice(1))) : -1; if (i >= 0) { sel = i; rows()[i].classList.add('sel'); rows()[i].scrollIntoView({block: 'center'}); } }
@@ -314,7 +314,7 @@ document.addEventListener('change', async e => {
     else if (keys[e.key]) { e.preventDefault(); keys[e.key](); }
   });
   document.addEventListener('click', e => {
-    const tr = e.target.closest('tr[data-href]');
+    const tr = e.target.closest('tr[data-href], .rows > li[data-href]');
     if (tr && !e.target.closest('a, button, input, select, label')) location = tr.dataset.href;
   });
 }

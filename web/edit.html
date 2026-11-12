@@ -10,7 +10,7 @@
 <label for="conf">{{.T "edit.conf"}}</label><textarea id="conf" name="conf" rows="18" spellcheck="false" aria-describedby="allowed-tags{{if .ConfErr}} conf-err{{end}}"{{if .ConfErr}} aria-invalid="true"{{end}}>{{.Conf}}</textarea>
 {{with .ConfErr}}<span class="err" id="conf-err" role="alert">{{.}}</span>{{end}}
 <span class="hint" id="allowed-tags">{{.T "edit.tags"}}: {{if .AnyTag}}{{.T "edit.tags.any"}}{{else if .AllowedTags}}<b>{{range $i, $t := .AllowedTags}}{{if $i}}, {{end}}{{$t}}{{end}}</b>, {{.T "edit.tags.least"}}{{else}}{{.T "edit.tags.none"}}{{end}}</span>
-<div class="full row end">{{if .EditNew}}<a class="btn" href="{{(index .Crumbs 0).Href}}">{{.T "btn.cancel"}}</a><button class="pri new">{{.T "btn.create"}} <kbd>Ctrl Enter</kbd></button>{{else}}<button class="pri nojs">{{.T "btn.save"}}</button>{{end}}</div>
+<div class="full row end">{{if .EditNew}}<a class="btn cancel" href="{{(index .Crumbs 0).Href}}">{{.T "btn.cancel"}}</a><button class="pri new">{{.T "btn.create"}} <kbd>Ctrl Enter</kbd></button>{{else}}<button class="pri nojs">{{.T "btn.save"}}</button>{{end}}</div>
 </form>{{end}}
 
 {{define "keys"}} · {{if .EditNew}}<kbd>Ctrl</kbd> <kbd>Enter</kbd> {{.T "key.create"}}{{else}}{{.T "key.autosave"}}{{end}} · <kbd>Esc</kbd> {{.T "key.leave"}}{{end}}
