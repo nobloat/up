@@ -32,11 +32,15 @@ func (promqlMonitor) run(ctx context.Context, m *Monitor) {
 	runChecks(ctx, m, func(ctx context.Context, cfg *MonitorConfig) (bool, bool, string, []sample) {
 		pc := cfg.PromQL
 		h := pc.HTTPConfig
-		u, err := url.JoinPath(h.URL, "api/v1/query")
+		u, err := url.Parse(h.URL)
 		if err != nil {
 			return false, false, errText(err), nil
 		}
-		h.URL = u + "?query=" + url.QueryEscape(pc.Query)
+		u = u.JoinPath("api/v1/query")
+		q := u.Query() // keeps the base's own parameters, e.g. ?tenant=a
+		q.Set("query", pc.Query)
+		u.RawQuery = q.Encode()
+		h.URL = u.String()
 		ok, fatal, reason, body := check(ctx, m.app, &h, cfg.Timeout.D())
 		if !ok {
 			return ok, fatal, reason, nil

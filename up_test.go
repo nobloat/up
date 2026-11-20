@@ -647,12 +647,12 @@ func TestPromQLChecks(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				e := newEnv(t)
 				e.serve("prom:80", func(w http.ResponseWriter, r *http.Request) {
-					if u, p, _ := r.BasicAuth(); u != "u" || p != "basic-secret" || r.URL.Path != "/prefix/api/v1/query" {
+					if u, p, _ := r.BasicAuth(); u != "u" || p != "basic-secret" || r.URL.Path != "/prefix/api/v1/query" || r.FormValue("tenant") != "a" { // UP-13: the base URL keeps its query
 						w.WriteHeader(401)
 					}
 					io.WriteString(w, responses[r.FormValue("query")])
 				}, nil)
-				e.start(e.cfg(fmt.Sprintf(`"monitors": [{"name": "m", "type": "promql", "interval": "1m", "promql": {"url": "http://prom/prefix/",
+				e.start(e.cfg(fmt.Sprintf(`"monitors": [{"name": "m", "type": "promql", "interval": "1m", "promql": {"url": "http://prom/prefix/?tenant=a",
 					"basic_auth": {"user": "u", "password": "basic-secret"}, "query": %q, "value": "%s %g"}}]`, c.query, c.op, c.value)))
 				sleep(time.Minute)
 				v := e.view("m")
@@ -2220,8 +2220,10 @@ func TestUILayout(t *testing.T) {
 		if resp.StatusCode != 303 || resp.Header.Get("Location") != "/pages" || !strings.Contains(resp.Header.Get("Set-Cookie"), "lang=de") {
 			t.Fatalf("lang: %d %v", resp.StatusCode, resp.Header)
 		}
-		if resp, _ := e.do("GET", "/lang/de?rd=//evil.example", "", ""); resp.Header.Get("Location") != "/" {
-			t.Fatalf("lang open redirect: %s", resp.Header.Get("Location"))
+		for _, rd := range []string{"//evil.example", "/%09/evil.example", "/%5C/evil.example", "/%0A/evil.example", "https://evil.example/"} {
+			if resp, _ := e.do("GET", "/lang/de?rd="+rd, "", ""); resp.Header.Get("Location") != "/" {
+				t.Fatalf("lang open redirect %s: %q", rd, resp.Header.Get("Location"))
+			}
 		}
 		if _, b := e.do("GET", "/", "admin", "", "Cookie", "lang=de"); !strings.Contains(b, `<html lang="de"`) || !strings.Contains(b, "Neuer Monitor") {
 			t.Fatalf("german: %s", b)
