@@ -161,6 +161,8 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-eye: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M1.5 8S3.9 3.5 8 3.5 14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z'/%3E%3Ccircle cx='8' cy='8' r='2'/%3E%3C/svg%3E");
   --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M9 1.5H4.5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5zM9 1.5V5h3.5'/%3E%3C/svg%3E");
   --icon-filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 3.5h11l-4.3 5v4l-2.4 1.5V8.5z'/%3E%3C/svg%3E");
+  --icon-focus-exit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5'/%3E%3C/svg%3E");
+  --icon-focus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10'/%3E%3C/svg%3E");
   --icon-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z'/%3E%3C/svg%3E");
   --icon-help: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M6.2 6.3a1.9 1.9 0 1 1 2.6 1.7c-.5.2-.8.6-.8 1.1v.4'/%3E%3Ccircle cx='8' cy='11.3' r='0.95' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
   --icon-home: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 7.5 8 3l5.5 4.5M4 6.5V13h3V9.5h2V13h3V6.5'/%3E%3C/svg%3E");
@@ -180,6 +182,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-plus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 3v10M3 8h10'/%3E%3C/svg%3E");
   --icon-power: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 2v6M4.6 4.4a5 5 0 1 0 6.8 0'/%3E%3C/svg%3E");
   --icon-print: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4.5 6V2.5h7V6M4.5 11.5h-1a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-1M4.5 9.5h7v4h-7z'/%3E%3C/svg%3E");
+  --icon-redo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M11 4l3 3-3 3M14 7H4v5h4'/%3E%3C/svg%3E");
   --icon-refresh: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M13.2 8A5.2 5.2 0 1 1 11.6 4.3M13.2 2.5v3h-3'/%3E%3C/svg%3E");
   --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='7' cy='7' r='4.5'/%3E%3Cpath d='M10.5 10.5l3 3'/%3E%3C/svg%3E");
   --icon-send: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M14 2 7 9M14 2l-4.5 12L7 9 2 6.5z'/%3E%3C/svg%3E");
@@ -188,6 +191,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-sun: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='2.8'/%3E%3Cpath d='M12.60 8.00L14.20 8.00M11.25 11.25L12.38 12.38M8.00 12.60L8.00 14.20M4.75 11.25L3.62 12.38M3.40 8.00L1.80 8.00M4.75 4.75L3.62 3.62M8.00 3.40L8.00 1.80M11.25 4.75L12.38 3.62'/%3E%3C/svg%3E");
   --icon-tag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6.5 2.5 5 13.5M11 2.5 9.5 13.5M3 6h10.5M2.5 10H13'/%3E%3C/svg%3E");
   --icon-trash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 4.5h11M6 4.5v-2h4v2M4 4.5l.8 9h6.4l.8-9M6.8 7v4.5M9.2 7v4.5'/%3E%3C/svg%3E");
+  --icon-undo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M5 4 2 7l3 3M2 7h10v5H8'/%3E%3C/svg%3E");
   --icon-upload: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 10.5v-8M4.5 6 8 2.5 11.5 6M2.5 13.5h11'/%3E%3C/svg%3E");
   --icon-user: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='5.5' r='2.5'/%3E%3Cpath d='M3 13.5c.8-2.6 2.8-4 5-4s4.2 1.4 5 4'/%3E%3C/svg%3E");
   --icon-users: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='6' cy='5.5' r='2.2'/%3E%3Cpath d='M1.8 13c.6-2.3 2.2-3.6 4.2-3.6s3.6 1.3 4.2 3.6'/%3E%3Ccircle cx='11.2' cy='5' r='1.8'/%3E%3Cpath d='M11 9.4c1.7 0 3 1.1 3.4 3.1'/%3E%3C/svg%3E");
@@ -220,6 +224,8 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-eye { --icon: var(--icon-eye); }
 .icon-file { --icon: var(--icon-file); }
 .icon-filter { --icon: var(--icon-filter); }
+.icon-focus-exit { --icon: var(--icon-focus-exit); }
+.icon-focus { --icon: var(--icon-focus); }
 .icon-folder { --icon: var(--icon-folder); }
 .icon-help { --icon: var(--icon-help); }
 .icon-home { --icon: var(--icon-home); }
@@ -239,6 +245,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-plus { --icon: var(--icon-plus); }
 .icon-power { --icon: var(--icon-power); }
 .icon-print { --icon: var(--icon-print); }
+.icon-redo { --icon: var(--icon-redo); }
 .icon-refresh { --icon: var(--icon-refresh); }
 .icon-search { --icon: var(--icon-search); }
 .icon-send { --icon: var(--icon-send); }
@@ -247,6 +254,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-sun { --icon: var(--icon-sun); }
 .icon-tag { --icon: var(--icon-tag); }
 .icon-trash { --icon: var(--icon-trash); }
+.icon-undo { --icon: var(--icon-undo); }
 .icon-upload { --icon: var(--icon-upload); }
 .icon-user { --icon: var(--icon-user); }
 .icon-users { --icon: var(--icon-users); }
