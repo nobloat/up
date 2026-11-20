@@ -2,10 +2,12 @@
 // Progressive enhancement only: every page works without it. Texts come from <script id="texts" type="application/json">.
 const $ = (s, el = document) => el.querySelector(s);
 window.T = JSON.parse(document.getElementById('texts')?.textContent || '{}');
+const nbHash = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch { return ''; } }; // a bad escape (#%) is no hash
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 
 // confirmation for destructive or public actions: <form data-confirm="text" data-confirm-title="Delete X?">
-// (or on the submit button); the title is optional; the submit button shows a spinner
+// (or on the submit button); the title is optional; the submit button shows a spinner.
+// A second submit of the same form within 3 s (double click, second Enter, held shortcut) is dropped.
 window.confirmDlg = (text, title) => new Promise(res => {
   const d = $('#confirm');
   if (!d) return res(confirm((title ? title + ': ' : '') + text));
@@ -18,6 +20,7 @@ window.confirmDlg = (text, title) => new Promise(res => {
 document.addEventListener('submit', async e => {
   const f = e.target;
   if (f.method === 'dialog') return;
+  if (f.nbSent) { e.preventDefault(); return; }
   const ask = e.submitter?.dataset.confirm || f.dataset.confirm; // a button may carry its own question (bulk bar)
   if (ask && !f.dataset.confirmed) {
     e.preventDefault();
@@ -25,7 +28,12 @@ document.addEventListener('submit', async e => {
     return;
   }
   delete f.dataset.confirmed;
-  if (f.target !== '_blank') e.submitter?.setAttribute('aria-busy', 'true');
+  if (f.target === '_blank') return;
+  e.submitter?.setAttribute('aria-busy', 'true');
+  // ponytail: a 3 s window, not "until the next page": a POST that answers with a download never navigates
+  f.nbSent = true;
+  setTimeout(() => { if (e.defaultPrevented) f.nbSent = false; }); // app.js handled it itself (fetch): no block
+  setTimeout(() => f.nbSent = false, 3000);
 });
 
 // theme: auto (follows the OS), light or dark; the header toggle cycles, the settings page has radios (#theme-seg);
@@ -33,8 +41,9 @@ document.addEventListener('submit', async e => {
 {
   const b = $('#theme'), root = document.documentElement, radios = document.querySelectorAll('input[name=nb-theme]');
   const names = {'': ['contrast', T['js.theme.auto'] || 'auto'], light: ['sun', T['js.theme.light'] || 'light'], dark: ['moon', T['js.theme.dark'] || 'dark']};
+  const cur = () => Object.hasOwn(names, root.dataset.theme ?? '') ? root.dataset.theme ?? '' : ''; // a stray stored value counts as auto
   const show = () => {
-    const t = root.dataset.theme || '';
+    const t = cur();
     if (b) { b.innerHTML = `<i class="icon-${names[t][0]}" aria-hidden="true"></i>`; b.title = (T['js.theme'] || 'theme') + ': ' + names[t][1]; b.setAttribute('aria-label', b.title); b.hidden = false; }
     radios.forEach(r => r.checked = r.value === t);
   };
@@ -43,7 +52,7 @@ document.addEventListener('submit', async e => {
     try { t ? localStorage.setItem('theme', t) : localStorage.removeItem('theme'); } catch {}
     show();
   };
-  if (b) b.onclick = () => set(({'': 'light', light: 'dark', dark: ''})[root.dataset.theme || '']);
+  if (b) b.onclick = () => set(({'': 'light', light: 'dark', dark: ''})[cur()]);
   radios.forEach(r => r.onchange = () => set(r.value));
   show();
   // design: graphite or paper, the user's choice over the app's Brand.Design; stored like the theme, applied in <head>
@@ -204,13 +213,15 @@ document.addEventListener('input', e => {
 });
 
 // money: <input data-money="1.234,56"> takes both conventions (1.234,56 · 1,234.56 · 1234.5 · -12) and rewrites the value
-// in the format of the example before it is sent; nothing else is accepted. money.parse(s) → cents or NaN, money.format(cents, example).
+// in the format of the example before it is sent; nothing else is accepted. money.parse(s, example) → cents or NaN, money.format(cents, example).
+// Ambiguous input follows the example: with 1.234,56 "1.500" is 1500 and "0,125" is refused; with 1,234.56 "0.999" is refused.
+// Groups without a decimal part need the example's group character; groups and decimal together may use either convention.
 window.money = {
-  parse: s => {
+  parse: (s, ex = '1.234,56') => {
     s = String(s).trim().replace(/[\s'€$£]|EUR|CHF|USD/g, '').replace('−', '-');
     const neg = s.startsWith('-'); s = s.replace(/^[-+]/, '');
     const m = s.match(/^(\d{1,3}(?:([.,])\d{3})*|\d+)(?:([.,])(\d{1,2}))?$/);
-    if (!m || (m[2] && m[3] === m[2])) return NaN;
+    if (!m || (m[2] && (m[3] === m[2] || !m[1].split(/\d+/).every(c => !c || c === m[2]) || (!m[3] && m[2] !== ex.match(/^1(\D?)234/)?.[1])))) return NaN;
     const cents = +m[1].replace(/[.,]/g, '') * 100 + +(m[4] || '0').padEnd(2, '0');
     return neg ? -cents : cents;
   },
@@ -223,7 +234,7 @@ window.money = {
 document.addEventListener('change', e => { // capture: runs before autosave sends the form
   const el = e.target;
   if (!el.matches?.('input[data-money]') || !el.value.trim()) return;
-  const c = money.parse(el.value), ex = el.dataset.money || '1.234,56';
+  const ex = el.dataset.money || '1.234,56', c = money.parse(el.value, ex);
   if (Number.isNaN(c)) { el.setCustomValidity(T['js.invalid'] || 'not valid'); fieldError(el, (T['js.invalid'] || 'not valid') + ': ' + el.value, (T['js.money.hint'] || 'an amount like') + ' ' + ex); e.stopImmediatePropagation(); return; }
   el.setCustomValidity('');
   el.value = money.format(c, ex);
@@ -247,31 +258,48 @@ document.addEventListener('input', e => { if (e.target.getAttribute?.('aria-inva
 
 // autosave: <form data-autosave> posts the form on every change (Accept: application/json). The answer is {rev?}
 // or 4xx {error, field?, hint?}. Saved: the field's edge flashes once and .saved says "✓ saved 14:02" (aria-live), no toast.
-// Invalid fields are not sent. The submit button (.nojs) stays the no-JS path. "saved" fires for pages that re-render.
-document.addEventListener('change', async e => {
-  const el = e.target, f = el.form;
-  if (!f?.matches('[data-autosave]')) return;
-  if (!el.checkValidity()) return; // the invalid event above already shows why
-  const s = $('.saved', f) || $('.saved');
-  if (s) s.textContent = T['js.saving'] || 'saving…';
-  const r = await fetch(f.action, {method: 'POST', body: new URLSearchParams(new FormData(f)), headers: {Accept: 'application/json'}}).catch(() => null);
-  const j = await r?.json().catch(() => ({})) || {};
-  if (r?.ok) {
-    if (f.elements.rev && j.rev) f.elements.rev.value = j.rev;
-    fieldError(el);
-    el.classList.add('was-saved'); setTimeout(() => el.classList.remove('was-saved'), 1200);
-    if (s) { s.textContent = '✓ ' + (T['js.saved'] || 'saved') + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}); s.classList.remove('err'); }
-    f.dispatchEvent(new CustomEvent('saved', {detail: j}));
-  } else if (r?.status === 401) { // signed out meanwhile: keep the input, say so once
-    document.body.dataset.sessionEnd = new Date(0).toISOString();
-    window.sessionCheck();
-    if (s) s.textContent = '';
-  } else {
-    const msg = T['err.' + j.error] || j.error || T['js.error'] || 'error';
-    fieldError(f.elements[j.field] || el, msg, j.hint);
-    if (s) { s.textContent = ''; }
-  }
-});
+// Nothing is sent while any field is invalid. The submit button (.nojs) stays the no-JS path. "saved" fires for pages that re-render.
+// One save per form at a time: a change during a save is sent after it, with the new rev. 409 (changed elsewhere) offers a reload.
+// A form with a file input (or enctype multipart/form-data) is posted as multipart, so the file is sent.
+{
+  const autosave = async (f, el) => {
+    f.nbSaving = true;
+    const s = $('.saved', f) || $('.saved');
+    if (s) s.textContent = T['js.saving'] || 'saving…';
+    const fd = new FormData(f), multi = f.enctype === 'multipart/form-data' || $('input[type=file]', f);
+    const r = await fetch(f.action, {method: 'POST', body: multi ? fd : new URLSearchParams(fd), headers: {Accept: 'application/json'}}).catch(() => null);
+    const j = await r?.json().catch(() => ({})) || {};
+    if (r?.ok) {
+      if (f.elements.rev && j.rev) f.elements.rev.value = j.rev;
+      fieldError(el);
+      el.classList.add('was-saved'); setTimeout(() => el.classList.remove('was-saved'), 1200);
+      if (s) { s.textContent = '✓ ' + (T['js.saved'] || 'saved') + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}); s.classList.remove('err'); }
+      f.dispatchEvent(new CustomEvent('saved', {detail: j}));
+    } else if (r?.status === 401) { // signed out meanwhile: keep the input, say so once
+      document.body.dataset.sessionEnd = new Date(0).toISOString();
+      window.sessionCheck();
+      if (s) s.textContent = '';
+    } else {
+      const msg = T['err.' + j.error] || j.error || T['js.error'] || 'error';
+      fieldError(f.elements[j.field] || el, msg, j.hint);
+      if (s) { s.textContent = ''; }
+      if (r?.status === 409) { // someone else changed it: the page is stale, every further save would fail the same way
+        const p = Object.assign(document.createElement('p'), {className: 'flash', textContent: msg + ' '});
+        p.append(Object.assign(document.createElement('a'), {href: location.href, textContent: T['js.reload'] || 'reload'}));
+        toast(p);
+      }
+    }
+    f.nbSaving = false;
+    const next = f.nbNext; f.nbNext = null;
+    if (next) autosave(f, next);
+  };
+  document.addEventListener('change', e => {
+    const el = e.target, f = el.form;
+    if (!f?.matches('[data-autosave]')) return;
+    if (!f.checkValidity()) return; // the invalid event above already shows why
+    if (f.nbSaving) f.nbNext = el; else autosave(f, el);
+  });
+}
 
 // keyboard, vim style. Page handlers first (window.pageKeys = {key: fn}, return false to fall through), then:
 // g+letter nav · / search · ? help · Ctrl+K or : palette · j/k rows · Enter open · h/l tabs · p/n pages · 1-9 chips · Esc up · [data-key] click
@@ -280,7 +308,7 @@ document.addEventListener('change', async e => {
   const rows = () => [...document.querySelectorAll('main :is(tr, .rows > li)[data-href]')];
   // the selected row is part of the URL (#CUS-0042, the row's id), so reload, Back and a shared link show the same selection
   const mark = () => { rows().forEach((r, i) => r.classList.toggle('sel', i === sel)); const id = rows()[sel]?.id; if (id) history.replaceState(history.state, '', '#' + id); };
-  { const i = location.hash.length > 1 ? rows().findIndex(r => r.id === decodeURIComponent(location.hash.slice(1))) : -1; if (i >= 0) { sel = i; rows()[i].classList.add('sel'); rows()[i].scrollIntoView({block: 'center'}); } }
+  { const i = nbHash() ? rows().findIndex(r => r.id === nbHash()) : -1; if (i >= 0) { sel = i; rows()[i].classList.add('sel'); rows()[i].scrollIntoView({block: 'center'}); } }
   const visible = s => [...document.querySelectorAll(s)].filter(el => el.offsetParent !== null);
   const go = el => { if (el) location = el.href; };
   const keyName = e => (e.ctrlKey || e.metaKey ? 'C-' : '') + (e.altKey ? 'A-' : '') + (e.altKey ? e.code.replace(/^Key/, '').toLowerCase() : e.key);
@@ -309,7 +337,7 @@ document.addEventListener('change', async e => {
     };
     const chip = /^[1-9]$/.test(e.key) && visible('main .chips a.chip')[+e.key - 1];
     const el = visible(`[data-key="${CSS.escape(e.key)}"]`)[0];
-    if (el) { e.preventDefault(); el.matches('input, select, textarea') ? el.focus() : el.click(); }
+    if (el) { e.preventDefault(); if (!e.repeat) el.matches('input, select, textarea') ? el.focus() : el.click(); } // a held key clicks once
     else if (chip) { e.preventDefault(); go(chip); }
     else if (keys[e.key]) { e.preventDefault(); keys[e.key](); }
   });
@@ -394,7 +422,7 @@ labelTables();
   const gather = () => {
     const c = [];
     document.querySelectorAll('nav.app a[data-g]').forEach(a => c.push({label: text(a), sub: 'g ' + a.dataset.g, run: () => location = a.href}));
-    document.querySelectorAll('header.app .right a[aria-label]').forEach(a => c.push({label: a.getAttribute('aria-label'), sub: '', run: () => location = a.href})); // settings, logout
+    document.querySelectorAll('header.app .right :is(a, form button)[aria-label]').forEach(a => c.push({label: a.getAttribute('aria-label'), sub: '', run: () => a.href ? location = a.href : a.click()})); // settings, logout (a POST form)
     document.querySelectorAll('main [data-key]').forEach(el => { if (el.offsetParent !== null) c.push({label: text(el) || el.getAttribute('aria-label') || el.title, sub: el.dataset.key, run: () => el.click()}); });
     if ($('#theme')) c.push({label: T['palette.theme'] || 'switch theme', sub: '◐', run: () => $('#theme').click()});
     c.push({label: T['palette.design'] || 'switch design', sub: 'graphite · paper', run: () => setDesign(document.documentElement.dataset.design === 'paper' ? 'graphite' : 'paper')});
@@ -503,9 +531,24 @@ setInterval(window.sessionCheck, 30000);
 // An open dialog is part of the URL (#new): a link to /customers#new opens it, closing removes the hash.
 const openDlg = id => { const d = document.getElementById(id); if (d?.tagName !== 'DIALOG' || d.open) return; d.showModal(); history.replaceState(history.state, '', '#' + id); };
 document.addEventListener('close', e => { if (location.hash === '#' + e.target.id) history.replaceState(history.state, '', location.pathname + location.search); }, true);
-if (location.hash.length > 1) openDlg(decodeURIComponent(location.hash.slice(1)));
-// prefill: <form data-prefill> takes ?name=…&email=… for its empty fields (the server should render them too; this covers dialogs and static pages)
-document.querySelectorAll('form[data-prefill]').forEach(f => { for (const [k, v] of new URLSearchParams(location.search)) { const el = f.elements[k]; if (el && 'value' in el && !el.value && el.type !== 'hidden') el.value = v; } });
+// prefill: <form data-prefill="name email"> takes ?name=…&email=… for the listed fields while they are empty (the server should
+// render them too; this covers dialogs and static pages). A bare data-prefill takes only text fields: never a select, checkbox,
+// radio, hidden or pill field, so a link cannot pick roles or groups. The values are the link's, so the submit button loses
+// autofocus: the first prefilled field gets the focus.
+{
+  const prefilled = [];
+  document.querySelectorAll('form[data-prefill]').forEach(f => {
+    const only = f.dataset.prefill.split(/\s+/).filter(Boolean);
+    for (const [k, v] of new URLSearchParams(location.search)) {
+      const el = f.elements.namedItem(k);
+      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) || el.value || el.readOnly || el.disabled) continue;
+      if (only.length ? !only.includes(k) : !/^(text|email|tel|url|search|number|date|textarea)$/.test(el.type) || el.dataset.pick !== undefined) continue;
+      el.value = v; prefilled.push(el);
+    }
+  });
+  if (nbHash()) openDlg(nbHash());
+  prefilled.find(el => el.offsetParent !== null || el.closest('dialog[open]'))?.focus();
+}
 document.addEventListener('click', async e => {
   const o = e.target.closest('[data-open]'), c = e.target.closest('[data-copy]');
   if (o) { e.preventDefault(); openDlg(o.dataset.open); }

@@ -9,7 +9,8 @@ The page value (dot) needs:
           Color/ColorDark set --brand/--brand-dark (#rrggbb); Design "" (graphite) or "paper".
   .Nav    []{Href, Label, Key string; On bool}   empty hides the nav; Key is the g+letter shortcut
   .Search string (search form action, "" = none)  .SearchAPI string (live search endpoint, optional)
-  .User .UserURL .LogoutURL .SettingsURL string  (⚙ next to logout; settings hold account, preferences, app settings)
+  .User .UserURL .LogoutURL .SettingsURL string  (⚙ next to logout; settings hold account, preferences, app settings;
+          logout is a POST form to LogoutURL, so a link or image cannot sign anyone out)
   .Crumbs []{Href, Label string}               breadcrumbs above the title, the last one is the current page (no Href)
   .SessionEnd .SessionRenew string             RFC 3339 end of the sign-in and a GET url that extends it (answer {end}); optional
   .Texts map[string]string (the js.*, search.* and palette.* texts)
@@ -56,7 +57,7 @@ The page value (dot) needs:
 {{template "nb-langtheme" .}}
 {{with .User}}{{if $.UserURL}}<a class="who" href="{{$.UserURL}}">{{.}}</a>{{else}}<span class="who">{{.}}</span>{{end}}{{end}}
 {{with .SettingsURL}}<a class="round" href="{{.}}" title="{{$.T "nav.settings"}}" aria-label="{{$.T "nav.settings"}}"><i class="icon-cog" aria-hidden="true"></i></a>{{end}}
-{{with .LogoutURL}}<a class="round" href="{{.}}" title="{{$.T "nav.logout"}}" aria-label="{{$.T "nav.logout"}}"><i class="icon-power" aria-hidden="true"></i></a>{{end}}
+{{with .LogoutURL}}<form method="post" action="{{.}}" class="logout"><button class="round" title="{{$.T "nav.logout"}}" aria-label="{{$.T "nav.logout"}}"><i class="icon-power" aria-hidden="true"></i></button></form>{{end}}
 {{if .Nav}}<button type="button" id="menu" class="round" aria-label="{{.T "nav.menu"}}" aria-expanded="false"><i class="icon-menu" aria-hidden="true"></i></button>{{end}}
 </span>
 </header>

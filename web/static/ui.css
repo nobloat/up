@@ -68,6 +68,7 @@ header.app { display: flex; flex-wrap: wrap; gap: .8rem 1.6rem; align-items: cen
 header.app .right { margin-left: auto; display: flex; gap: .9rem; align-items: center; color: var(--muted); white-space: nowrap; }
 header.app .right a { text-decoration: none; }
 header.app .right a.on { color: var(--fg); }
+header.app .right form { display: contents; } /* logout: a POST form around the ⏻ button */
 header.app .prefs { display: inline-flex; align-items: center; gap: .9rem; } /* language links and ◐ on the header's center line */
 #menu { display: none; }
 nav.app { display: flex; gap: 1.6rem; padding: .8rem 0 0; flex-wrap: wrap; align-items: baseline; }
