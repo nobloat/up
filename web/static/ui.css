@@ -463,6 +463,7 @@ dialog[open] { animation: pop .15s ease-out; }
 body.center { max-width: 26rem; padding-top: 12vh; }
 body.center .logo { margin-bottom: 1.6rem; }
 body.center .form { grid-template-columns: 1fr; }
+body.center .form > * { grid-column: 1; } /* .err, .hint and .drop sit in column 2 of a two-column form; one column here */
 body.center .form label { display: grid; gap: .3rem; color: var(--muted); }
 body.center h1 { display: flex; align-items: center; }
 

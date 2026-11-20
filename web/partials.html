@@ -3,7 +3,7 @@ A page defines "main" and runs {{template "nb-layout" .}}; it may also define "h
 "keys" (page shortcuts for the keys line, each starting with " · "), "help" (extra <tr> rows) and "scripts".
 
 The page value (dot) needs:
-  .Lang .Title .Here .Q .Version string     .Err .Notice string (flash)
+  .Lang .Title .Here .Q .Version string     .Err .Notice string (flash); the footer (product, src, version) shows only with .User
   .Brand  {App, Char, Name, Color, ColorDark, Logo, LogoDark, Icon, Design string}
           App "bill", Char "€" (the ][€ glyph). Name, Logo, LogoDark, Icon only for a custom brand.
           Color/ColorDark set --brand/--brand-dark (#rrggbb); Design "" (graphite) or "paper".
@@ -68,10 +68,10 @@ The page value (dot) needs:
 {{define "nb-flash"}}{{with .Err}}<p class="flash" role="alert">{{.}}</p>{{end}}{{with .Notice}}<p class="flash ok" role="status">{{.}}</p>{{end}}{{end}}
 
 {{define "nb-foot"}}{{if .Nav}}<p class="keys"><kbd>?</kbd> {{.T "key.help"}}{{if .Search}} · <kbd>/</kbd> {{.T "key.search"}}{{end}}{{block "keys" .}}{{end}}</p>{{end}}
-<footer class="foot">
+{{if .User}}<footer class="foot">
 <b>][{{.Brand.Char}} nobloat/{{.Brand.App}}</b>
 <span>{{.T "foot.made"}} <a href="https://spiessknafl.at/peter" rel="noopener">cinemast</a> · <a href="https://nobloat.org" rel="noopener">nobloat.org</a> · <a href="https://github.com/nobloat/{{.Brand.App}}" rel="noopener">src</a> · {{.Version}}</span>
-</footer>
+</footer>{{end}}
 <dialog id="help" aria-labelledby="help-h">
 <h2 id="help-h">{{.T "help.title"}}</h2>
 <table>

@@ -1595,7 +1595,7 @@ func TestAPIAndUI(t *testing.T) {
 			t.Fatalf("detail: %s", b)
 		}
 		for _, p := range []string{"/", "/monitor/web"} {
-			if b := e.get(p); !strings.Contains(b, `<a href="https://nobloat.org" rel="noopener">nobloat.org</a>`) || !strings.Contains(b, "· "+version()) {
+			if b := e.get(p); strings.Contains(b, `<footer class="foot">`) {
 				t.Fatalf("%s footer: %s", p, b)
 			}
 		}
