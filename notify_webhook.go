@@ -44,8 +44,11 @@ func (webhookNotifier) send(a *App, n *NotifierConfig, msg message) error {
 	}
 	var atts []webhookAttachment
 	for _, c := range msg.Changes {
-		i := slices.IndexFunc(msg.All, func(v monitorView) bool { return v.Name == c.Name })
-		att := attach(msg.All[i], dot(c.Old)+" → "+dot(c.New), c.Reason)
+		v := monitorView{Name: c.Name, State: c.New, URL: c.URL} // a deleted monitor is not in msg.All
+		if i := slices.IndexFunc(msg.All, func(v monitorView) bool { return v.Name == c.Name }); i >= 0 {
+			v = msg.All[i]
+		}
+		att := attach(v, dot(c.Old)+" → "+dot(c.New), c.Reason)
 		if !c.Down.IsZero() {
 			att.Fallback += " " + c.downtime()
 			att.Fields = append(att.Fields, webhookField{"Down since", c.Down.UTC().Format(time.RFC3339), true},

@@ -84,9 +84,26 @@ func payloadMessage(payload []byte) string {
 	return string(s)
 }
 
-func (m *Monitor) push(up bool, reason string, payload []byte) {
+// pushGap: at most one push or signal per second and monitor is recorded; the log is append-only.
+const pushGap = time.Second
+
+// tooSoon reports whether a push or signal now would come within pushGap of the last one; else it counts as recorded. Needs m.mu.
+func (m *Monitor) tooSoon(now time.Time) bool {
+	if now.Sub(m.recorded) < pushGap {
+		return true
+	}
+	m.recorded = now
+	return false
+}
+
+// push records a push; false when it came too soon after the last one and was dropped.
+func (m *Monitor) push(up bool, reason string, payload []byte) bool {
 	now := time.Now()
 	m.mu.Lock()
+	if m.tooSoon(now) {
+		m.mu.Unlock()
+		return false
+	}
 	m.log(row{Time: now, Event: "push", Message: payloadMessage(payload)})
 	m.lastPush = now
 	m.mu.Unlock()
@@ -95,13 +112,19 @@ func (m *Monitor) push(up bool, reason string, payload []byte) {
 	}
 	m.record(checkResult{Time: now, OK: up, Reason: reason}, false)
 	m.checkNow()
+	return true
 }
 
-func (m *Monitor) signal(kind string, payload []byte) {
+func (m *Monitor) signal(kind string, payload []byte) bool {
 	m.mu.Lock()
+	if m.tooSoon(time.Now()) {
+		m.mu.Unlock()
+		return false
+	}
 	m.log(row{Event: "signal", Message: kind + ": " + payloadMessage(payload)})
 	m.mu.Unlock()
 	slog.Info("push signal", "monitor", m.name, "kind", kind)
+	return true
 }
 
 func (a *App) pushByToken(token string) *Monitor {
@@ -147,7 +170,10 @@ func (a *App) handlePush(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "status must be up or down", http.StatusBadRequest)
 		return
 	}
-	m.push(status != "down", "", body)
+	if !m.push(status != "down", "", body) {
+		http.Error(w, "too many pushes, at most one per second", http.StatusTooManyRequests)
+		return
+	}
 	io.WriteString(w, "ok\n")
 }
 
@@ -175,7 +201,10 @@ func (a *App) handleKumaPush(w http.ResponseWriter, r *http.Request) {
 			body = []byte(msg)
 		}
 	}
-	m.push(status == "up", reason, body)
+	if !m.push(status == "up", reason, body) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{"ok": false, "msg": "too many pushes, at most one per second"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -190,20 +219,25 @@ func (a *App) handleHealthchecksPing(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	var recorded bool
 	switch s := r.PathValue("signal"); s {
 	case "":
-		m.push(true, "", body)
+		recorded = m.push(true, "", body)
 	case "fail":
-		m.push(false, "", body)
+		recorded = m.push(false, "", body)
 	case "start", "log":
-		m.signal(s, body)
+		recorded = m.signal(s, body)
 	default:
 		code, err := strconv.Atoi(s)
 		if err != nil || code < 0 || code > 255 {
 			http.Error(w, "invalid url format", http.StatusBadRequest)
 			return
 		}
-		m.push(code == 0, map[bool]string{true: "push received", false: "reported down"}[code == 0]+" (exit "+s+")", body)
+		recorded = m.push(code == 0, map[bool]string{true: "push received", false: "reported down"}[code == 0]+" (exit "+s+")", body)
+	}
+	if !recorded {
+		http.Error(w, "too many pushes, at most one per second", http.StatusTooManyRequests)
+		return
 	}
 	io.WriteString(w, "OK")
 }

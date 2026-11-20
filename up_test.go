@@ -892,6 +892,7 @@ func TestPush(t *testing.T) {
 			{"name": "backup", "type": "push", "interval": "1h", "grace": "10m", "retry_count": 1, "retry_interval": "5m", "push": {"token": "0123456789abcdef"}},
 			{"name": "web", "type": "http", "interval": "1h", "http": {"url": "http://target/"}}]`))
 		push := func(method, path, body string) int {
+			time.Sleep(pushGap) // one push per second is recorded
 			resp, _ := e.do(method, path, "", body)
 			synctest.Wait()
 			return resp.StatusCode
@@ -957,6 +958,7 @@ func TestPushCompat(t *testing.T) {
 			{"name": "hc", "type": "push", "interval": "1h", "push": {"token": "5d0e2a3c-1b4f-4f7e-9a8b-0c1d2e3f4a5b"}}]`)
 		e.start(cfg)
 		push := func(method, path, body string) (int, string) {
+			time.Sleep(pushGap) // one push per second is recorded
 			resp, b := e.do(method, path, "", body)
 			synctest.Wait()
 			return resp.StatusCode, b
@@ -1375,6 +1377,9 @@ func TestAuditFormat(t *testing.T) {
 		e.post("/api/monitors/p/pause", "reason=x, y", "Content-Type", "application/x-www-form-urlencoded")
 		e.post("/api/monitors/p/resume", "")
 		e.post("/api/monitors/p/pause", "")
+		ts := time.Now().UTC().Format(time.RFC3339)
+		time.Sleep(pushGap)
+		ts2 := time.Now().UTC().Format(time.RFC3339)
 		e.do("GET", "/push/p/0123456789abcdef", "", "")
 		synctest.Wait()
 		e.stop()
@@ -1384,11 +1389,10 @@ func TestAuditFormat(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ts := time.Now().UTC().Format(time.RFC3339)
 		want := [][]string{auditHeader, {ts, "start", "", "up " + version() + " started"}, {ts, "state", "red", "new monitor"},
 			{ts, "push", "", `{"msg":"a,b \"c\""}`}, {ts, "state", "green", "push received"}, {ts, "paused", "", "x, y"},
-			{ts, "resumed", "", "resumed, was paused: x, y"}, {ts, "paused", "", "no reason given"}, {ts, "push", "", "(no payload)"},
-			{ts, "stop", "", "up stopped"}}
+			{ts, "resumed", "", "resumed, was paused: x, y"}, {ts, "paused", "", "no reason given"}, {ts2, "push", "", "(no payload)"},
+			{ts2, "stop", "", "up stopped"}}
 		if fmt.Sprint(recs) != fmt.Sprint(want) {
 			t.Fatalf("csv\n%q\nwant\n%q", recs, want)
 		}
@@ -2389,6 +2393,80 @@ func TestPauseKeepsPendingRecovery(t *testing.T) {
 		sleep(6 * time.Second)
 		if b, _ := got.Load().(string); !strings.Contains(b, "🔴 → 🟢") {
 			t.Fatalf("recovery swallowed by the pause: %q", b)
+		}
+	})
+}
+
+// UP-12: deleting a monitor whose last reported state is red resolves the alert.
+func TestDeleteRedMonitorResolves(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		var got atomic.Value
+		e.serve("chat:80", func(w http.ResponseWriter, r *http.Request) { b, _ := io.ReadAll(r.Body); got.Store(string(b)) }, nil)
+		e.serve("target:80", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) }, nil)
+		e.start(e.cfg(`"evaluation_interval": "5s", "notifiers": {"chat": {"type": "webhook", "url": "http://chat/"}},
+			"monitors": [{"name": "m", "type": "http", "interval": "1h", "notifiers": ["chat"], "http": {"url": "http://target/"}}]`))
+		e.post("/api/monitors/m/check", "")
+		sleep(6 * time.Second)
+		if b, _ := got.Load().(string); !strings.Contains(b, "→ 🔴") {
+			t.Fatalf("no alert: %q", b)
+		}
+		if resp, _ := e.post("/edit", url.Values{"name": {"m"}, "delete": {"1"}}.Encode(), "Content-Type", "application/x-www-form-urlencoded"); resp.StatusCode != 303 {
+			t.Fatalf("delete: %d", resp.StatusCode)
+		}
+		sleep(6 * time.Second)
+		if b, _ := got.Load().(string); !strings.Contains(b, "🔴 → deleted") || !strings.Contains(b, "deleted, alert resolved") {
+			t.Fatalf("no resolve after delete: %q", b)
+		}
+		if r := restore(e.rows("m")); r.reported["chat"] != stateDeleted {
+			t.Fatalf("reported %v", r.reported)
+		}
+	})
+}
+
+// UP-5: the audit log is rotated per calendar year; the new file carries state, pause, last push and notified state.
+func TestAuditYearRotation(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		dir := t.TempDir()
+		a := &App{dataDir: dir}
+		cfg := &MonitorConfig{Name: "p", Type: "push", Interval: Duration(time.Hour), Push: &PushConfig{Token: "0123456789abcdef"}}
+		m := newMonitor(a, cfg, "test", newHistory())
+		m.mu.Lock()
+		m.lastPush, m.paused, m.pauseReason, m.pausedSince = time.Now(), true, "maintenance", time.Now()
+		m.reported["chat"] = red
+		m.mu.Unlock()
+		year := time.Now().UTC().Year()
+		time.Sleep(time.Until(time.Date(year+1, 1, 1, 0, 0, 1, 0, time.UTC)))
+		m.mu.Lock()
+		m.log(row{Event: "check", Message: "new year"})
+		m.mu.Unlock()
+		if rows, err := readLog(filepath.Join(dir, fmt.Sprintf("p.%d.csv", year))); err != nil || len(rows) != 2 {
+			t.Fatalf("last year's log: %v %+v", err, rows)
+		}
+		h, err := a.loadHistory(m.path)
+		if err != nil || h.state != red || !h.paused || h.pauseReason != "maintenance" || h.lastPush.IsZero() || h.reported["chat"] != red ||
+			h.tail[len(h.tail)-1].Message != "new year" {
+			t.Fatalf("carried over: %v %+v", err, h.restored)
+		}
+	})
+}
+
+// UP-5: at most one push per second and monitor is recorded.
+func TestPushRateLimit(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		e.start(e.cfg(`"monitors": [{"name": "p", "type": "push", "interval": "1h", "push": {"token": "0123456789abcdef"}}]`))
+		for i, want := range []int{200, 429} {
+			if resp, _ := e.do("GET", "/push/p/0123456789abcdef", "", ""); resp.StatusCode != want {
+				t.Fatalf("push %d: %d", i, resp.StatusCode)
+			}
+		}
+		if resp, _ := e.do("GET", "/api/push/0123456789abcdef", "", ""); resp.StatusCode != 429 {
+			t.Fatalf("kuma: %d", resp.StatusCode)
+		}
+		time.Sleep(pushGap)
+		if resp, _ := e.do("GET", "/ping/0123456789abcdef", "", ""); resp.StatusCode != 200 {
+			t.Fatalf("after a second: %d", resp.StatusCode)
 		}
 	})
 }

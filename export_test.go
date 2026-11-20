@@ -263,13 +263,10 @@ func TestStalledExportBlocksNoWrite(t *testing.T) {
 	l := e.net.listen("up:80")
 	go func() { done <- run(ctx, e.dir, l, e.net.dial) }()
 	defer func() { cancel(); <-done }()
-	for range 20 { // incompressible, so the archive outgrows every buffer between up and the client
-		var b strings.Builder
-		for b.Len() < 4000 {
-			b.WriteString(rand.Text())
-		}
-		e.do("POST", "/push/p/0123456789abcdef", "", b.String())
-	}
+	filler := make([]byte, 200<<10) // incompressible, so the archive outgrows every buffer between up and the client
+	rand.Read(filler)
+	os.MkdirAll(filepath.Join(e.dir, "data"), 0o700)
+	os.WriteFile(filepath.Join(e.dir, "data", "filler.bin"), filler, 0o600)
 	req, _ := http.NewRequest("GET", "http://up/api/export", nil)
 	req.SetBasicAuth("admin", "pw")
 	resp, err := e.client.Do(req)

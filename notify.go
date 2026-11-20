@@ -136,6 +136,11 @@ func (a *App) evaluate(lastSent map[string]time.Time) {
 	for _, name := range slices.Sorted(maps.Keys(cfg.Notifiers)) {
 		nc := cfg.Notifiers[name]
 		var msg message
+		a.mu.Lock()
+		gone := a.gone[name]
+		delete(a.gone, name)
+		a.mu.Unlock()
+		msg.Changes = slices.Clone(gone)
 		sent := map[*Monitor]string{}
 		for _, mc := range cfg.Monitors {
 			m := ms[mc.Name]
@@ -171,6 +176,7 @@ func (a *App) evaluate(lastSent map[string]time.Time) {
 		if err != nil {
 			slog.Error("notification failed", "notifier", name, "err", err)
 			a.mu.Lock()
+			a.gone[name] = append(gone, a.gone[name]...)
 			f, ok := a.failing[name]
 			if !ok {
 				f = failure{Notifier: name, Since: now}
@@ -185,6 +191,20 @@ func (a *App) evaluate(lastSent map[string]time.Time) {
 		a.mu.Lock()
 		delete(a.failing, name)
 		a.mu.Unlock()
+	}
+}
+
+// resolveGone queues a "deleted" change for every notifier the removed monitor m last told red, so an open alert is resolved.
+// The reported row is written now: a monitor that comes back (a file that was broken for a while) alerts again.
+// ponytail: the queue is in memory; a restart before the next evaluation drops it. Needs a.mu.
+func (a *App) resolveGone(cfg *Config, m *Monitor) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, n := range slices.Sorted(maps.Keys(m.reported)) {
+		if m.reported[n] == red && cfg.Notifiers[n] != nil {
+			a.gone[n] = append(a.gone[n], change{Name: m.name, Old: red, New: stateDeleted, Reason: "deleted, alert resolved", URL: cfg.BaseURL + "/"})
+			m.setReportedLocked(n, stateDeleted)
+		}
 	}
 }
 

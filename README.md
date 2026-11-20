@@ -70,7 +70,7 @@ up restore -data ./data -config ./config up-full.tgz up-inc.tgz  # offline
 
 `up restore` needs an empty or missing data dir, applies the archives in order (deleting files missing from each manifest), never overwrites an existing config file, verifies sha256 against the last manifest and runs the checks of `-check`. Without `-config` only the data is restored. Untarring by hand works too.
 
-Formats: `up.conf` and `<name>.<kind>.conf` are `key = value` text; `data/<monitor>.csv` (dots in the name become `_`) is CSV with the header `timestamp,event,state,message`. Creating a monitor in the UI under the name of a deleted one moves the old log aside as `data/<monitor>.<UTC time>.deleted.csv`, so the new one starts fresh.
+Formats: `up.conf` and `<name>.<kind>.conf` are `key = value` text; `data/<monitor>.csv` (dots in the name become `_`) is CSV with the header `timestamp,event,state,message`. Creating a monitor in the UI under the name of a deleted one moves the old log aside as `data/<monitor>.<UTC time>.deleted.csv`, so the new one starts fresh. The current year is in `data/<monitor>.csv`; at the first row of a new year the file moves to `data/<monitor>.<year>.csv` and the new one starts with the state, pause, last push and notified states carried over. Only the current file is read at startup.
 
 ## Configuration
 
@@ -207,11 +207,11 @@ curl -fsS "https://up.nobloat.org/api/push/<token>?status=down&msg=disk%20full"
 some-job > job.log 2>&1; rc=$?; curl -fsS --data-raw "$(tail -c 4000 job.log)" https://up.nobloat.org/ping/<token>/$rc
 ```
 
-No push within `interval` + `grace` is a failure; the token is the only auth.
+No push within `interval` + `grace` is a failure; the token is the only auth. At most one push (or `/start`, `/log` signal) per second and monitor is recorded, more answer 429.
 
 ### Notifiers
 
-Sent when a monitor turns red or recovers, batched every `evaluation_interval`. Failed deliveries retry, also after a restart.
+Sent when a monitor turns red or recovers, batched every `evaluation_interval`. Deleting a monitor a notifier last heard red of sends it "deleted, alert resolved" (ilert: a resolve). Failed deliveries retry, also after a restart.
 
 ```ini
 type = webhook

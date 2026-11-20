@@ -3,9 +3,14 @@ package main
 import (
 	"cmp"
 	"context"
+	"errors"
+	"io/fs"
 	"log/slog"
+	"maps"
+	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,9 +43,10 @@ var monitorTypes = map[string]monitorType{
 const maxReason = 1000 // a reason is logged on every state change; push messages are free text
 
 const (
-	stateNew   = "new"
-	reasonNone = "no reason given"
-	reasonNew  = "new monitor"
+	stateNew     = "new"
+	stateDeleted = "deleted" // a removed monitor, as reported to notifiers
+	reasonNone   = "no reason given"
+	reasonNew    = "new monitor"
 )
 
 const (
@@ -85,6 +91,8 @@ type Monitor struct {
 	nextCheck   time.Time
 	lastPush    time.Time
 	reported    map[string]string
+	year        int       // of the last append to path; the first append of a new year rotates the log
+	recorded    time.Time // last push or signal written
 	up          uptimeSum // of every row logged, so pages never re-read the log
 	tail        []row     // the newest rows
 }
@@ -97,14 +105,17 @@ func newMonitor(a *App, cfg *MonitorConfig, why string, h *history) *Monitor {
 	m := &Monitor{app: a, name: cfg.Name, cfg: cfg, path: monitorPath(a.dataDir, cfg.Name),
 		wake: make(chan struct{}, 1), up: h.up, tail: h.tail}
 	r := h.restored
-	m.log(row{Event: "start", Message: why})
-	if r.state == "" {
-		r.state, r.reason, r.since = red, reasonNew, time.Now()
-		m.log(row{Event: "state", State: r.state, Message: r.reason})
+	if fi, err := os.Stat(m.path); err == nil {
+		m.year = fi.ModTime().UTC().Year()
 	}
 	m.state, m.reason, m.since, m.downSince, m.upSince = r.state, r.reason, r.since, r.downSince, r.upSince
-	m.paused, m.pauseReason, m.pausedState, m.pausedSince, m.pausedUntil = r.paused, r.pauseReason, r.pausedState, r.pausedSince, r.pausedUntil
+	m.paused, m.pauseReason, m.pausedSince, m.pausedUntil = r.paused, r.pauseReason, r.pausedSince, r.pausedUntil
 	m.reported, m.lastPush = r.reported, r.lastPush
+	m.log(row{Event: "start", Message: why})
+	if m.state == "" {
+		m.state, m.reason, m.since = red, reasonNew, time.Now()
+		m.log(row{Event: "state", State: m.state, Message: m.reason})
+	}
 	m.failures = map[string]int{green: 0, yellow: 1, red: cfg.RetryCount + 1}[m.state]
 	if m.reason == reasonNew {
 		m.failures = 0
@@ -127,11 +138,55 @@ func (m *Monitor) log(r row) error {
 	}
 	m.app.store.RLock() // an export waits for this append, and this append for an export
 	defer m.app.store.RUnlock()
+	if y := time.Now().UTC().Year(); y > m.year {
+		if m.year != 0 {
+			m.rotate()
+		}
+		m.year = y
+	}
 	if err := appendRow(m.path, r); err != nil {
 		slog.Error("writing audit log", "monitor", m.name, "err", err)
 		return err
 	}
 	return nil
+}
+
+// rotate moves last year's log to <name>.<year>.csv and starts the new one with what startup needs:
+// state, pause, last push and what each notifier was told. Called by log with m.mu and the store lock held.
+func (m *Monitor) rotate() {
+	old := strings.TrimSuffix(m.path, ".csv") + "." + strconv.Itoa(m.year) + ".csv"
+	if err := os.Rename(m.path, old); err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			slog.Error("rotating audit log", "monitor", m.name, "err", err)
+		}
+		return
+	}
+	syncDir(filepath.Dir(m.path))
+	now := time.Now()
+	carry := []row{{Time: now, Event: "rotated", Message: "older rows: " + filepath.Base(old)}}
+	if m.state != "" {
+		carry = append(carry, row{Time: m.since, Event: "state", State: m.state, Message: m.reason})
+	}
+	if m.paused {
+		until := ""
+		if !m.pausedUntil.IsZero() {
+			until = m.pausedUntil.UTC().Format(time.RFC3339)
+		}
+		carry = append(carry, row{Time: m.pausedSince, Event: "paused", State: until, Message: cmp.Or(m.pauseReason, reasonNone)})
+	}
+	if !m.lastPush.IsZero() {
+		carry = append(carry, row{Time: m.lastPush, Event: "push", Message: "(carried over)"})
+	}
+	for _, n := range slices.Sorted(maps.Keys(m.reported)) {
+		carry = append(carry, row{Time: now, Event: "reported", State: m.reported[n], Message: n})
+	}
+	slices.SortStableFunc(carry, func(a, b row) int { return a.Time.Compare(b.Time) })
+	for _, r := range carry {
+		if err := appendRow(m.path, r); err != nil {
+			slog.Error("rotating audit log", "monitor", m.name, "err", err)
+			return
+		}
+	}
 }
 
 // newest: up to tailRows rows of the log, newest first.

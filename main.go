@@ -110,6 +110,7 @@ type App struct {
 	mu       sync.Mutex
 	monitors map[string]*Monitor
 	failing  map[string]failure
+	gone     map[string][]change // notifier -> deleted monitors it last told red, resolved at the next evaluation
 
 	reloadMu sync.Mutex
 	lastFP   string
@@ -130,7 +131,7 @@ func run(ctx context.Context, path string, ln net.Listener, dial dialFunc) error
 		return err
 	}
 	a := &App{path: path, dataDir: cfg.DataDir, ctx: ctx,
-		monitors: map[string]*Monitor{}, failing: map[string]failure{}, subs: map[*sub]struct{}{}}
+		monitors: map[string]*Monitor{}, failing: map[string]failure{}, gone: map[string][]change{}, subs: map[*sub]struct{}{}}
 	a.setDial(dial, ln.Addr())
 
 	slog.Info("up started", "version", version(), "url", listenURL(ln.Addr().String()), "monitors", len(cfg.Monitors))
@@ -220,6 +221,7 @@ func (a *App) apply(ctx context.Context, cfg *Config) error {
 	}
 	for name, m := range a.monitors {
 		if !keep[name] {
+			a.resolveGone(cfg, m)
 			m.retire("removed by config reload")
 			delete(a.monitors, name)
 		}
