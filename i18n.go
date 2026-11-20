@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 )
@@ -91,8 +92,17 @@ func setLang(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &http.Cookie{Name: "lang", Value: l, Path: "/", MaxAge: 365 * 86400, SameSite: http.SameSiteLaxMode, HttpOnly: true})
 	}
 	rd := r.FormValue("rd")
-	if !strings.HasPrefix(rd, "/") || strings.HasPrefix(rd, "//") || strings.HasPrefix(rd, `/\`) {
+	if !localRedirect(rd) {
 		rd = "/"
 	}
 	http.Redirect(w, r, rd, http.StatusSeeOther)
+}
+
+// localRedirect: a path on this host; browsers drop tabs and newlines and read \ as /, so /%09/evil.example would leave it.
+func localRedirect(s string) bool {
+	if strings.ContainsFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f || r == '\\' }) {
+		return false
+	}
+	u, err := url.Parse(s)
+	return err == nil && u.Scheme == "" && u.Host == "" && u.User == nil && strings.HasPrefix(u.Path, "/") && !strings.HasPrefix(u.Path, "//")
 }
