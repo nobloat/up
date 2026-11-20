@@ -134,7 +134,7 @@ account_url     = https://auth.example.com/settings
 
 | Role | May |
 |---|---|
-| `viewer` | see the monitors of their tags, with config (secrets masked) and log |
+| `viewer` | see the monitors of their tags, with config (secrets masked, of the URL only scheme and host, no body or header values) and log |
 | `editor` | also check now, pause and resume them; create, edit and delete their monitors and status pages (shows their secrets), keeping tags within their own and the existing ones |
 | `admin` | every monitor regardless of tags, notifier failure banners |
 

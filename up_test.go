@@ -1453,9 +1453,7 @@ func TestReload(t *testing.T) {
 		e.writeConfig(e.cfg(`"monitors": [` + mon("a", "up") + `,` + mon("b", "down") + `]`))
 		sleep(reloadInterval)
 		e.wantState("a", green)
-		e.wantState("b", green)
-		e.post("/api/monitors/b/check", "")
-		e.wantState("b", red)
+		e.wantState("b", red) // UP-11: a changed URL is checked at once, not after the old interval
 		if got := e.states("a"); !slices.Equal(got, []string{red, green}) {
 			t.Fatalf("a states %v", got)
 		}

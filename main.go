@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -201,7 +202,10 @@ func (a *App) apply(ctx context.Context, cfg *Config) error {
 			m.start(ctx)
 			continue
 		}
-		typeChanged := m.config().Type != mc.Type
+		old := m.config()
+		typeChanged := old.Type != mc.Type
+		was, _ := json.Marshal(old)
+		now, _ := json.Marshal(mc)
 		if typeChanged {
 			m.halt()
 		}
@@ -210,8 +214,8 @@ func (a *App) apply(ctx context.Context, cfg *Config) error {
 		m.mu.Unlock()
 		if typeChanged {
 			m.start(ctx)
-		} else if mc.Type == "push" {
-			m.checkNow()
+		} else if string(was) != string(now) {
+			m.checkNow() // a new URL or interval applies now, not after the old interval
 		}
 	}
 	for name, m := range a.monitors {
