@@ -6,7 +6,7 @@
 <span>{{.T "acc.tags"}}</span><span>{{if .AnyTag}}{{.T "acc.tags.all"}}{{else}}{{range .AllowedTags}}<a class="tag" href="/?tag={{.}}">{{.}}</a>{{else}}{{.T "edit.tags.none"}}{{end}}{{end}}</span>
 <span>{{.T "acc.via"}}</span><span>{{if .U.SSO}}{{.T "acc.sso"}}{{else}}{{.T "acc.basic"}}{{end}}</span>
 </div>
-{{if and .U.SSO (or .AccountURL .LogoutURL)}}<div class="row account">{{with .AccountURL}}<a class="btn" href="{{.}}">{{$.T "acc.manage"}} <i class="icon-external" aria-hidden="true"></i></a>{{end}}{{with .LogoutURL}}<a class="btn" href="{{.}}"><i class="icon-power" aria-hidden="true"></i> {{$.T "nav.logout"}}</a>{{end}}</div>{{end}}
+{{if and .U.SSO (or .AccountURL .LogoutURL)}}<div class="row account">{{with .AccountURL}}<a class="btn" href="{{.}}">{{$.T "acc.manage"}} <i class="icon-external" aria-hidden="true"></i></a>{{end}}{{with .LogoutURL}}<form method="post" action="{{.}}" class="inline"><button><i class="icon-power" aria-hidden="true"></i> {{$.T "nav.logout"}}</button></form>{{end}}</div>{{end}}
 
 <h2>{{.T "sec.prefs"}}</h2>
 <div class="form">

@@ -1945,7 +1945,7 @@ func TestSSO(t *testing.T) {
 			t.Fatalf("viewer list: %d %s", c, b)
 		}
 		if c, b := as("GET", "/", "up-viewer,team-a"); c != 200 || !strings.Contains(b, "/monitor/web") || strings.Contains(b, "/monitor/db") || strings.Contains(b, "/check") ||
-			!strings.Contains(b, `<a class="who" href="https://auth.example/settings">alice</a>`) || !strings.Contains(b, `href="https://auth.example/logout"`) {
+			!strings.Contains(b, `<a class="who" href="https://auth.example/settings">alice</a>`) || !strings.Contains(b, `<form method="post" action="https://auth.example/logout"`) {
 			t.Fatalf("viewer page: %d %s", c, b)
 		}
 		for path, want := range map[string]int{"/api/monitors/db": 404, "/monitor/db": 404, "/api/monitors/web": 200} {
