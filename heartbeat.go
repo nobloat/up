@@ -26,7 +26,7 @@ func (a *App) heartbeatLoop(ctx context.Context) {
 
 func (a *App) heartbeat(ctx context.Context, u string) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if resp, err := (&http.Client{Transport: a.transport(false), Timeout: 30 * time.Second}).Do(req); err != nil {
+	if resp, err := (&http.Client{Transport: a.transport(false, false), Timeout: 30 * time.Second}).Do(req); err != nil {
 		slog.Error("heartbeat failed", "host", req.URL.Host, "err", errText(err))
 	} else {
 		resp.Body.Close()

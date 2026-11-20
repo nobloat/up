@@ -52,6 +52,9 @@ func (h *HTTPConfig) validate() error {
 	if err := checkURL(h.URL); err != nil {
 		return err
 	}
+	if err := checkHeaders(h.Headers); err != nil {
+		return err
+	}
 	for _, s := range h.AcceptedStatus {
 		if s < 100 || s > 599 {
 			return fmt.Errorf("invalid accepted status %d", s)
@@ -138,7 +141,7 @@ func check(ctx context.Context, a *App, h *HTTPConfig, timeout time.Duration) (o
 		req.SetBasicAuth(h.BasicAuth.User, h.BasicAuth.Password)
 	}
 	private := h.BasicAuth != nil || len(h.Headers) > 0 || h.Body != "" || req.URL.User != nil || req.URL.RawQuery != ""
-	client := &http.Client{Transport: a.transport(h.SkipVerify), Timeout: timeout,
+	client := &http.Client{Transport: a.transport(h.SkipVerify, true), Timeout: timeout,
 		CheckRedirect: redirectPolicy(*h.MaxRedirects, private)}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -170,7 +173,8 @@ func check(ctx context.Context, a *App, h *HTTPConfig, timeout time.Duration) (o
 		got, found := jsonPath(v, j.Path)
 		if !found || !reflect.DeepEqual(got, h.equals) {
 			g, _ := json.Marshal(got)
-			return false, false, fmt.Sprintf("%s is %s, want %s", j.Path, g, j.Equals), nil
+			// clipped: viewers see the reason, a check must not read whole responses back
+			return false, false, fmt.Sprintf("%s is %s, want %s", j.Path, clip(string(g), 80), j.Equals), nil
 		}
 	}
 	return true, false, status, body

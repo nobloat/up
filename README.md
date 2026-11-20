@@ -106,23 +106,23 @@ heartbeat.urls = https://hc-ping.com/<uuid>
 | `base_url` | required | public URL, for links in notifications |
 | `data_dir` | required | audit logs, one CSV per monitor |
 | `auth.user`, `auth.password` | required without `role.*` | basic auth for the UI and API, always admin |
-| `trusted_proxies` | | CIDRs whose `Remote-User` / `Remote-Groups` headers are believed, see [single sign-on](#single-sign-on) |
+| `trusted_proxies` | | CIDRs whose `Remote-User` / `Remote-Groups` headers are believed, see [single sign-on](#single-sign-on); give the proxy's own address (`/32`), not a whole network |
 | `role.viewer`, `role.editor`, `role.admin` | | IdP groups per role |
 | `access.<group>` | | tags whose monitors the group sees, `*` for all |
 | `logout_url`, `account_url` | | IdP links next to the signed-in user's name |
 | `design` | `graphite` | look of the UI: `graphite` or `paper` ([nobloat/ui](https://github.com/nobloat/ui)) |
 | `brand_color`, `brand_color_dark` | the design's | `#rrggbb` accent color; the dark one defaults to a lighter shade of `brand_color` |
 | `listen` | `:7493` | plain HTTP, put a TLS proxy in front |
-| `proxy` | | HTTP proxy for all checks and notifications |
+| `proxy` | | HTTP proxy for all checks and notifications; it then decides which addresses checks may reach |
 | `evaluation_interval` | `30s` | how often notifications are evaluated and batched |
 | `heartbeat.urls`, `heartbeat.interval` | `1m` | URLs to GET while `up` runs |
 
 ### Single sign-on
 
-Optional: with only `auth.user` / `auth.password` everyone shares one admin login, as before. Single sign-on works the same as in bill and track: caddy's `forward_auth` asks [nobloat/auth](../auth) (or another IdP) to log the user in and forwards `Remote-User` and `Remote-Groups`. `up` believes those headers only from `trusted_proxies`; anyone else needs basic auth.
+Optional: with only `auth.user` / `auth.password` everyone shares one admin login, as before. Single sign-on works the same as in bill and track: caddy's `forward_auth` asks [nobloat/auth](../auth) (or another IdP) to log the user in and forwards `Remote-User` and `Remote-Groups`. `up` believes those headers only from `trusted_proxies`; anyone else needs basic auth. Give only the proxy's own address: everything inside `trusted_proxies` can claim to be any user.
 
 ```ini
-trusted_proxies = 10.0.0.0/8
+trusted_proxies = 10.0.0.2/32
 role.viewer     = up-viewer
 role.editor     = up-editor
 role.admin      = up-admin
@@ -181,7 +181,7 @@ For `http`, `metric` and `promql` (`promql` always uses `GET`).
 |---|---|---|
 | `url` | required | |
 | `method` | `GET` | `GET`, `POST`, `HEAD` |
-| `headers.<name>` | | `Host` overrides the host header |
+| `headers.<name>` | | `Host` overrides the host header; `Remote-*` and `X-Forwarded-*` are refused (they are the proxy's) |
 | `basic_auth.user`, `basic_auth.password` | | |
 | `body` | | request body |
 | `accepted_status` | any 2xx | e.g. `200, 204` |
@@ -193,6 +193,8 @@ For `http`, `metric` and `promql` (`promql` always uses `GET`).
 
 - Redirects never downgrade HTTPS. With credentials, headers, a body or a query string only same-origin redirects are followed
 - Secrets are masked on the detail page; errors never contain the URL
+- Checks and webhooks never connect to loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, cloud metadata, `fe80::/10`) or `up` itself, also not after DNS or a redirect; private networks (`10/8`, `172.16/12`, `192.168/16`) stay reachable. Without a `proxy`, run what should be checked on another address than localhost
+- A failed `json_match` shows at most 80 characters of the value found
 
 ### Push monitors
 

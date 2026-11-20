@@ -10,9 +10,11 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -96,7 +98,9 @@ type dialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 type App struct {
 	path    string
 	dataDir string
-	dial    dialFunc
+	dial    dialFunc // SMTP, heartbeats and the configured proxy
+	guarded dialFunc // monitors and webhooks: never loopback, link-local or up itself
+	self    listener
 	ctx     context.Context
 	cfg     atomic.Pointer[Config]
 
@@ -122,11 +126,9 @@ func run(ctx context.Context, path string, ln net.Listener, dial dialFunc) error
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return err
 	}
-	if dial == nil {
-		dial = (&net.Dialer{}).DialContext
-	}
-	a := &App{path: path, dataDir: cfg.DataDir, dial: dial, ctx: ctx,
+	a := &App{path: path, dataDir: cfg.DataDir, ctx: ctx,
 		monitors: map[string]*Monitor{}, failing: map[string]failure{}, subs: map[*sub]struct{}{}}
+	a.setDial(dial, ln.Addr())
 
 	slog.Info("up started", "version", version(), "url", listenURL(ln.Addr().String()), "monitors", len(cfg.Monitors))
 	if err := a.apply(ctx, cfg); err != nil {
@@ -290,11 +292,66 @@ func listenURL(addr string) string {
 	return "http://" + net.JoinHostPort(host, port) + "/"
 }
 
-func (a *App) transport(skipVerify bool) *http.Transport {
+// transport for one request; guarded refuses loopback, link-local and up's own listener, except through the configured proxy, which decides on its own.
+func (a *App) transport(skipVerify, guarded bool) *http.Transport {
 	t := &http.Transport{DialContext: a.dial, DisableKeepAlives: true,
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify}}
+	if guarded {
+		t.DialContext = a.guarded
+	}
 	if p := a.cfg.Load().proxy; p != nil {
-		t.Proxy = http.ProxyURL(p)
+		t.Proxy, t.DialContext = http.ProxyURL(p), a.dial
 	}
 	return t
+}
+
+// listener: up's own address. A monitor aimed at it would pass CSRF protection and, seen from a trusted proxy address, sign in with its own Remote-* headers.
+type listener struct {
+	port int
+	ips  []netip.Addr
+}
+
+// setDial sets both dialers from dial (nil: the network); tests pass their own, used unguarded.
+// ponytail: up's addresses are read at startup; one added later is not refused (loopback always is)
+func (a *App) setDial(dial dialFunc, addr net.Addr) {
+	a.dial, a.guarded = dial, dial
+	if dial == nil {
+		a.dial = (&net.Dialer{}).DialContext
+		a.guarded = (&net.Dialer{Control: a.refuse}).DialContext
+	}
+	ta, ok := addr.(*net.TCPAddr)
+	if !ok {
+		return
+	}
+	a.self.port = ta.Port
+	if !ta.IP.IsUnspecified() {
+		a.self.ips = []netip.Addr{ta.AddrPort().Addr().Unmap()}
+		return
+	}
+	addrs, _ := net.InterfaceAddrs()
+	for _, ad := range addrs {
+		if n, ok := ad.(*net.IPNet); ok {
+			if ip, ok := netip.AddrFromSlice(n.IP); ok {
+				a.self.ips = append(a.self.ips, ip.Unmap())
+			}
+		}
+	}
+}
+
+// refuse checks every address the guarded dialer connects to, after DNS and on each redirect. Private networks stay allowed: monitors check the containers next to up.
+func (a *App) refuse(network, address string, _ syscall.RawConn) error {
+	ap, err := netip.ParseAddrPort(address)
+	if err != nil {
+		return err
+	}
+	ip := ap.Addr().Unmap().WithZone("")
+	switch {
+	case ip.IsLoopback() || ip.IsUnspecified():
+		return fmt.Errorf("refused: %s is a loopback address", ip)
+	case ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast():
+		return fmt.Errorf("refused: %s is a link-local address", ip)
+	case int(ap.Port()) == a.self.port && slices.Contains(a.self.ips, ip):
+		return errors.New("refused: that is up itself")
+	}
+	return nil
 }

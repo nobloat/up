@@ -8,7 +8,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
+
+// clip shortens s to at most n bytes at a rune boundary, marking the cut with "…".
+func clip(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n] + "…"
+}
 
 type monitorType interface {
 	validate(c *MonitorConfig) error

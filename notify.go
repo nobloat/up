@@ -205,7 +205,7 @@ func (a *App) httpSend(method, url string, headers map[string]string, body []byt
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	resp, err := (&http.Client{Transport: a.transport(false), Timeout: 30 * time.Second, CheckRedirect: redirectPolicy(10, true)}).Do(req)
+	resp, err := (&http.Client{Transport: a.transport(false, true), Timeout: 30 * time.Second, CheckRedirect: redirectPolicy(10, true)}).Do(req)
 	if err != nil {
 		return errors.New(errText(err))
 	}

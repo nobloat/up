@@ -2252,3 +2252,40 @@ func TestUILayout(t *testing.T) {
 		}
 	})
 }
+
+// UP-1: no monitor or webhook sends the headers a proxy vouches for.
+func TestProxyHeadersRefused(t *testing.T) {
+	for _, h := range []string{"Remote-User", "remote-groups", "X-Forwarded-For", "x-forwarded-host"} {
+		if err := (&HTTPConfig{URL: "http://x/", Headers: map[string]string{h: "x"}}).validate(); err == nil {
+			t.Errorf("monitor header %s accepted", h)
+		}
+		if err := (&NotifierConfig{Type: "webhook", URL: "http://x/", Headers: map[string]string{h: "x"}}).validate(); err == nil {
+			t.Errorf("webhook header %s accepted", h)
+		}
+	}
+	if err := (&HTTPConfig{URL: "http://x/", Headers: map[string]string{"X-Api-Key": "k"}}).validate(); err != nil {
+		t.Error(err)
+	}
+}
+
+// UP-2: monitors and webhooks never reach loopback, link-local or up itself; private networks stay reachable.
+func TestDialGuard(t *testing.T) {
+	a := &App{}
+	a.cfg.Store(&Config{})
+	a.setDial(nil, &net.TCPAddr{IP: net.ParseIP("172.30.87.5"), Port: 7493})
+	for addr, ok := range map[string]bool{"127.0.0.1:80": false, "[::1]:80": false, "0.0.0.0:80": false, "[::ffff:127.0.0.1]:80": false,
+		"169.254.169.254:80": false, "[fe80::1%eth0]:80": false, "172.30.87.5:7493": false,
+		"172.30.87.5:80": true, "10.1.2.3:443": true, "192.168.1.1:80": true, "93.184.216.34:443": true} {
+		if err := a.refuse("tcp", addr, nil); (err == nil) != ok {
+			t.Errorf("%s: %v", addr, err)
+		}
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer srv.Close()
+	if ok, _, reason, _ := check(t.Context(), a, &HTTPConfig{Method: "GET", URL: srv.URL, MaxRedirects: new(10)}, 5*time.Second); ok || !strings.Contains(reason, "loopback") {
+		t.Fatalf("monitor reached loopback: %v %s", ok, reason)
+	}
+	if err := a.httpSend("POST", srv.URL, nil, nil); err == nil || !strings.Contains(err.Error(), "loopback") {
+		t.Fatalf("webhook reached loopback: %v", err)
+	}
+}

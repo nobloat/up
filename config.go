@@ -457,7 +457,20 @@ func (n *NotifierConfig) validate() error {
 	if t == nil {
 		return fmt.Errorf("unknown type %q", n.Type)
 	}
+	if err := checkHeaders(n.Headers); err != nil {
+		return err
+	}
 	return t.validate(n)
+}
+
+// checkHeaders refuses the headers a proxy vouches for: a check aimed at up (or any app behind the same proxy) must not sign itself in.
+func checkHeaders(h map[string]string) error {
+	for k := range h {
+		if l := strings.ToLower(k); strings.HasPrefix(l, "remote-") || strings.HasPrefix(l, "x-forwarded-") {
+			return fmt.Errorf("headers.%s: Remote-* and X-Forwarded-* are set by the proxy, not by up", k)
+		}
+	}
+	return nil
 }
 
 func (p *StatusPageConfig) validate(dir string) error {
