@@ -4,9 +4,12 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
+	"crypto/rand"
 	"encoding/json"
 	"io"
 	"maps"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -204,4 +207,36 @@ func TestExportNeedsAdmin(t *testing.T) {
 			t.Fatalf("first entry: %v %v", h, err)
 		}
 	})
+}
+
+// UP-4: a download the client stops reading holds no lock, pushes and checks go on.
+func TestStalledExportBlocksNoWrite(t *testing.T) {
+	e := newEnv(t)
+	e.writeConfig(e.cfg(`"monitors": [{"name": "p", "type": "push", "interval": "1h", "push": {"token": "0123456789abcdef"}}]`))
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	l := e.net.listen("up:80")
+	go func() { done <- run(ctx, e.dir, l, e.net.dial) }()
+	defer func() { cancel(); <-done }()
+	for range 20 { // incompressible, so the archive outgrows every buffer between up and the client
+		var b strings.Builder
+		for b.Len() < 4000 {
+			b.WriteString(rand.Text())
+		}
+		e.do("POST", "/push/p/0123456789abcdef", "", b.String())
+	}
+	req, _ := http.NewRequest("GET", "http://up/api/export", nil)
+	req.SetBasicAuth("admin", "pw")
+	resp, err := e.client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close() // never read
+	pushed := make(chan struct{})
+	go func() { e.do("POST", "/push/p/0123456789abcdef", "", "late"); close(pushed) }()
+	select {
+	case <-pushed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("a push waited for the stalled export")
+	}
 }

@@ -145,8 +145,8 @@ func writeExport(w io.Writer, cfgDir, dataDir string, since time.Time) error {
 	return gz.Close()
 }
 
-// apiExport streams the config and data dirs as one consistent tar.gz; ?since=<a manifest's created> sends only what changed.
-// ponytail: writes (audit appends, conf saves) wait for the whole download; fine for a few MB, stage to a temp file if it grows
+// apiExport sends the config and data dirs as one consistent tar.gz; ?since=<a manifest's created> sends only what changed.
+// The archive is staged to a temp file in the data dir under the store lock, then streamed without it: a stalled download blocks no write.
 func (a *App) apiExport(w http.ResponseWriter, r *http.Request) {
 	if !need(w, r, admin) {
 		return
@@ -160,12 +160,27 @@ func (a *App) apiExport(w http.ResponseWriter, r *http.Request) {
 		}
 		since = t
 	}
-	http.NewResponseController(w).SetWriteDeadline(time.Time{})
+	f, err := os.CreateTemp(a.dataDir, ".tmp-export-*") // .tmp-: never exported, skipped by backups
+	if err != nil {
+		slog.Error("export", "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "export_failed"})
+		return
+	}
+	defer os.Remove(f.Name())
+	defer f.Close()
 	a.store.Lock()
-	defer a.store.Unlock()
+	err = writeExport(f, a.path, a.dataDir, since)
+	a.store.Unlock()
+	if err != nil {
+		slog.Error("export", "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "export_failed"})
+		return
+	}
+	http.NewResponseController(w).SetWriteDeadline(time.Time{})
 	w.Header().Set("Content-Type", "application/gzip")
 	w.Header().Set("Content-Disposition", `attachment; filename="up-`+time.Now().Format("2006-01-02")+`.tgz"`)
-	if err := writeExport(w, a.path, a.dataDir, since); err != nil {
+	f.Seek(0, io.SeekStart)
+	if _, err := io.Copy(w, f); err != nil {
 		slog.Error("export", "err", err)
 	}
 }

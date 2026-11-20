@@ -59,7 +59,7 @@ up.nobloat.org {
 The data dir and the config dir are the backup. The UI writes the config dir, so back it up too.
 
 - Copy both with any tool while `up` runs, full or incremental (`rsync -a --delete`, restic, borg, volume snapshots): audit logs only grow by appended, synced records, and config files are replaced by atomic renames, so a copy is never half a file. Skip `.tmp-*` files.
-- Or export through `up` for a consistent cut (admin): `GET /api/export` streams a tar.gz with `manifest.json` first (app, version, created, every file with path, size, mtime, sha256), then `config/<file>` for every file of the config dir, then `data/<file>`. `?since=<created of an earlier manifest>` sends only the files changed since then, plus the full manifest, so deletions show.
+- Or export through `up` for a consistent cut (admin): `GET /api/export` builds a tar.gz in a `.tmp-export-*` file of the data dir (writes pause only while it is built, not while it downloads) and sends it with `manifest.json` first (app, version, created, every file with path, size, mtime, sha256), then `config/<file>` for every file of the config dir, then `data/<file>`. `?since=<created of an earlier manifest>` sends only the files changed since then, plus the full manifest, so deletions show.
 
 ```sh
 export UP_URL=https://up.nobloat.org UP_USER=admin UP_PASSWORD=…
