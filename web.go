@@ -978,6 +978,13 @@ func (a *App) saveConf(u *User, kind, name, conf string, create, del bool) error
 	}
 	a.store.RLock()
 	defer a.store.RUnlock()
+	if log := monitorPath(a.dataDir, name); kind == "monitor" && create && a.monitor(name) == nil {
+		// a new monitor never inherits the log (pushes, reasons, pause) of a deleted one of the same name, maybe another team's
+		old := strings.TrimSuffix(log, ".csv") + "." + time.Now().UTC().Format("20060102T150405Z") + ".deleted.csv"
+		if err := os.Rename(log, old); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+	}
 	if err := os.Rename(tmp, path); err != nil {
 		return err
 	}

@@ -70,7 +70,7 @@ up restore -data ./data -config ./config up-full.tgz up-inc.tgz  # offline
 
 `up restore` needs an empty or missing data dir, applies the archives in order (deleting files missing from each manifest), never overwrites an existing config file, verifies sha256 against the last manifest and runs the checks of `-check`. Without `-config` only the data is restored. Untarring by hand works too.
 
-Formats: `up.conf` and `<name>.<kind>.conf` are `key = value` text; `data/<monitor>.csv` (dots in the name become `_`) is CSV with the header `timestamp,event,state,message`.
+Formats: `up.conf` and `<name>.<kind>.conf` are `key = value` text; `data/<monitor>.csv` (dots in the name become `_`) is CSV with the header `timestamp,event,state,message`. Creating a monitor in the UI under the name of a deleted one moves the old log aside as `data/<monitor>.<UTC time>.deleted.csv`, so the new one starts fresh.
 
 ## Configuration
 

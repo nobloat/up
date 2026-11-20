@@ -2326,3 +2326,28 @@ func TestBasicAuthGuesses(t *testing.T) {
 		}
 	})
 }
+
+// UP-9: a monitor created under the name of a deleted one starts with a fresh log; the old one is kept aside.
+func TestRecreatedMonitorFreshLog(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		e.start(e.cfg(`"monitors": [{"name": "backup", "type": "push", "interval": "1h", "push": {"token": "0123456789abcdef"}}]`))
+		e.do("POST", "/push/backup/0123456789abcdef", "", "tax secret payload")
+		form := func(v url.Values) int {
+			resp, _ := e.post("/edit", v.Encode(), "Content-Type", "application/x-www-form-urlencoded")
+			return resp.StatusCode
+		}
+		if c := form(url.Values{"name": {"backup"}, "delete": {"1"}}); c != 303 {
+			t.Fatalf("delete: %d", c)
+		}
+		if c := form(url.Values{"name": {"backup"}, "new": {"1"}, "conf": {"type = push\ninterval = 1h\ntoken = fedcba9876543210\n"}}); c != 303 {
+			t.Fatalf("create: %d", c)
+		}
+		if b := e.get("/monitor/backup"); strings.Contains(b, "tax secret payload") {
+			t.Fatal("the new monitor shows the deleted one's log")
+		}
+		if old, _ := filepath.Glob(filepath.Join(e.dir, "data", "backup.*.deleted.csv")); len(old) != 1 {
+			t.Fatalf("old log not kept: %v", old)
+		}
+	})
+}
