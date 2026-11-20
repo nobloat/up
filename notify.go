@@ -80,8 +80,7 @@ func (m *Monitor) diff(n string) (change, bool) {
 	if !ok {
 		prev = stateNew
 	}
-	if m.paused {
-		m.setReportedLocked(n, m.pausedState)
+	if m.paused { // reported stays what was really sent: after the pause, a recovery or alert that happened meanwhile still goes out
 		return change{}, false
 	}
 	if prev == stateNew {

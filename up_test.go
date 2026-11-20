@@ -2362,3 +2362,33 @@ func TestViewerMasking(t *testing.T) {
 		t.Errorf("editor: %s", rows)
 	}
 }
+
+// UP-12: a recovery that happened just before a pause is sent after the pause, not swallowed.
+func TestPauseKeepsPendingRecovery(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		var ok atomic.Bool
+		var got atomic.Value
+		e.serve("chat:80", func(w http.ResponseWriter, r *http.Request) { b, _ := io.ReadAll(r.Body); got.Store(string(b)) }, nil)
+		e.serve("target:80", func(w http.ResponseWriter, r *http.Request) {
+			if !ok.Load() {
+				w.WriteHeader(503)
+			}
+		}, nil)
+		e.start(e.cfg(`"evaluation_interval": "5s", "notifiers": {"chat": {"type": "webhook", "url": "http://chat/"}},
+			"monitors": [{"name": "m", "type": "http", "interval": "1h", "notifiers": ["chat"], "http": {"url": "http://target/"}}]`))
+		e.post("/api/monitors/m/check", "")
+		sleep(6 * time.Second) // red sent
+		ok.Store(true)
+		e.post("/api/monitors/m/check", "")
+		e.wantState("m", green)
+		e.post("/api/monitors/m/pause", "")
+		got.Store("")
+		sleep(10 * time.Second)
+		e.post("/api/monitors/m/resume", "")
+		sleep(6 * time.Second)
+		if b, _ := got.Load().(string); !strings.Contains(b, "🔴 → 🟢") {
+			t.Fatalf("recovery swallowed by the pause: %q", b)
+		}
+	})
+}
