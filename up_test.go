@@ -2351,3 +2351,16 @@ func TestRecreatedMonitorFreshLog(t *testing.T) {
 		}
 	})
 }
+
+// UP-10: viewers see only scheme and host of a monitor's URL, and no body or header values.
+func TestViewerMasking(t *testing.T) {
+	c := &MonitorConfig{Type: "http", HTTP: &HTTPConfig{URL: "https://hc-ping.com/CANARY1?sid=CANARY2", Body: "CANARY3", Headers: map[string]string{"X-Team": "CANARY4"}}}
+	for _, r := range configRows(c, false) {
+		if strings.Contains(r.Value, "CANARY") {
+			t.Errorf("viewer sees %s = %s", r.Key, r.Value)
+		}
+	}
+	if rows := fmt.Sprint(configRows(c, true)); !strings.Contains(rows, "CANARY1") || !strings.Contains(rows, "CANARY3") {
+		t.Errorf("editor: %s", rows)
+	}
+}

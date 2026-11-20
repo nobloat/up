@@ -404,7 +404,7 @@ type rowData struct {
 
 func (p page) Row(v monitorView) rowData { return rowData{v, p} }
 
-func (p page) Config() []kv { return configRows(p.Cfg) }
+func (p page) Config() []kv { return configRows(p.Cfg, p.U.Role >= editor) }
 
 type kv struct{ Key, Value string }
 
@@ -412,18 +412,19 @@ func (k kv) IsURL() bool { return checkURL(k.Value) == nil }
 
 const masked = "••••••"
 
-func configRows(c *MonitorConfig) []kv {
+// configRows: the config for the detail page, secrets masked; viewers (full false) see only scheme and host of the URL and no header values or body.
+func configRows(c *MonitorConfig, full bool) []kv {
 	var block any
 	switch c.Type {
 	case "http":
-		block = maskHTTP(*c.HTTP)
+		block = maskHTTP(*c.HTTP, full)
 	case "metric":
 		mc := *c.Metric
-		mc.HTTPConfig = *maskHTTP(mc.HTTPConfig)
+		mc.HTTPConfig = *maskHTTP(mc.HTTPConfig, full)
 		block = &mc
 	case "promql":
 		pc := *c.PromQL
-		pc.HTTPConfig = *maskHTTP(pc.HTTPConfig)
+		pc.HTTPConfig = *maskHTTP(pc.HTTPConfig, full)
 		pc.Method = ""
 		block = &pc
 	case "push":
@@ -443,20 +444,23 @@ func secretName(k string) bool {
 	return slices.ContainsFunc([]string{"auth", "token", "key", "secret", "cookie", "pass", "sig"}, func(s string) bool { return strings.Contains(k, s) })
 }
 
-func maskHTTP(h HTTPConfig) *HTTPConfig {
+func maskHTTP(h HTTPConfig, full bool) *HTTPConfig {
 	if h.BasicAuth != nil {
 		h.BasicAuth = &Credentials{h.BasicAuth.User, masked}
 	}
 	h.Headers = maps.Clone(h.Headers)
 	for k := range h.Headers {
-		if secretName(k) {
+		if secretName(k) || !full {
 			h.Headers[k] = masked
 		}
 	}
-	if secretName(h.Body) {
+	if secretName(h.Body) || !full && h.Body != "" {
 		h.Body = masked
 	}
 	h.URL = maskURL(h.URL)
+	if u, err := url.Parse(h.URL); !full && err == nil { // paths and queries carry capability tokens: hc-ping.com/<uuid>, hook URLs
+		h.URL = u.Scheme + "://" + u.Host + "/" + masked
+	}
 	return &h
 }
 
