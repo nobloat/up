@@ -163,7 +163,7 @@ func (a *App) handleKumaPush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	status, msg := cmp.Or(q.Get("status"), "up"), q.Get("msg")
+	status, msg := cmp.Or(q.Get("status"), "up"), clip(q.Get("msg"), maxReason)
 	if status != "up" && status != "down" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "msg": "status must be up or down"})
 		return

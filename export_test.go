@@ -183,9 +183,54 @@ func TestAuditAppendOnly(t *testing.T) {
 	if got := cli([]string{"-check", "-config", e.dir}); got != 1 {
 		t.Fatalf("check: exit %d", got)
 	}
-	if err := run(t.Context(), e.dir, e.net.listen("up:80"), e.net.dial); err == nil || !strings.Contains(err.Error(), "unterminated") {
+	// UP-6, owner decision 2026-11-20: startup cuts the torn record off and goes on; -check above still reports it
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	l := e.net.listen("up:80")
+	go func() { done <- run(ctx, e.dir, l, e.net.dial) }()
+	e.do("GET", "/api/monitors", "admin", "")
+	cancel()
+	if err := <-done; err != nil {
 		t.Fatalf("startup: %v", err)
 	}
+	rows, err := readLog(p)
+	if err != nil || len(rows) != 5 || rows[2].Event != "start" || rows[4].Event != "stop" {
+		t.Fatalf("after the cut: %v %+v", err, rows)
+	}
+	// a damaged record in the middle is skipped, the rest is read
+	b, _ := os.ReadFile(p)
+	os.WriteFile(p, bytes.Replace(b, []byte("start,,a"), []byte("start,,a\nnot a time,x,y,z"), 1), 0o600)
+	h, err := (&App{}).loadHistory(p)
+	if err != nil || len(h.tail) != 5 {
+		t.Fatalf("skip: %v %+v", err, h.tail)
+	}
+}
+
+// UP-6: a notification whose "reported" row cannot be written is not sent again every evaluation.
+func TestReportedWithoutDisk(t *testing.T) {
+	m := &Monitor{app: &App{}, path: filepath.Join(t.TempDir(), "missing", "m.csv"), reported: map[string]string{}}
+	m.setReported("chat", red)
+	if m.reported["chat"] != red {
+		t.Fatal("reported state lost when the log cannot be written")
+	}
+}
+
+// UP-5: pages read uptime and the log from memory, a long push message is clipped.
+func TestUptimeFromMemory(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		e.start(e.cfg(`"monitors": [{"name": "p", "type": "push", "interval": "1h", "push": {"token": "0123456789abcdef"}}]`))
+		e.do("GET", "/api/push/0123456789abcdef?status=down&msg="+strings.Repeat("x", 5000), "", "")
+		sleep(time.Hour)
+		os.WriteFile(e.csvPath("p"), []byte("garbage"), 0o600) // not read again
+		v := e.view("p")
+		if v.Uptime == nil || v.Uptime.Percent == nil || len(v.Reason) > maxReason+3 {
+			t.Fatalf("uptime %+v, reason of %d bytes", v.Uptime, len(v.Reason))
+		}
+		if b := e.get("/monitor/p"); !strings.Contains(b, "reported down: xxx") {
+			t.Fatal("log not shown from memory")
+		}
+	})
 }
 
 func TestExportNeedsAdmin(t *testing.T) {

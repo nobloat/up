@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -21,8 +23,9 @@ type row struct {
 	Message string
 }
 
-// appendRow appends one complete record and syncs it; the file is never rewritten.
-// ponytail: audit.csv grows forever; split per year if it outgrows a few MB
+// appendRow appends one complete record in a single write and syncs it; the file is never rewritten.
+// A failed write (a full disk) is cut off again, so the next record starts on a line of its own.
+// ponytail: the log grows forever, read once at startup; split per year if that gets slow
 func appendRow(path string, r row) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
 	if err != nil {
@@ -33,73 +36,150 @@ func appendRow(path string, r row) error {
 	if err != nil {
 		return err
 	}
-	w := csv.NewWriter(f)
+	var b bytes.Buffer
+	w := csv.NewWriter(&b)
 	if fi.Size() == 0 {
 		w.Write(auditHeader)
 	}
 	w.Write([]string{r.Time.UTC().Format(time.RFC3339), r.Event, r.State, r.Message})
 	w.Flush()
-	if err := w.Error(); err != nil {
+	if _, err := f.Write(b.Bytes()); err != nil {
+		f.Truncate(fi.Size())
 		return err
 	}
 	return f.Sync()
 }
 
-func readLog(path string) ([]row, error) {
+// maxTorn: a broken end of a log up to this size is one torn append (a record is at most a few KB); more is damage startup refuses.
+const maxTorn = 64 << 10
+
+// scanLog reads an audit log record by record. A record that does not parse is skipped and reported in bad;
+// a broken last record (a power cut during an append) is also reported with its offset in torn (else -1), so startup can cut it off.
+// err is for what is not one bad record: the file cannot be read, its header is wrong, or a large broken end.
+func scanLog(path string, fn func(row)) (bad []error, torn int64, err error) {
+	torn = -1
 	f, err := os.Open(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
+		return nil, torn, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, torn, err
 	}
 	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, torn, err
+	}
+	size := fi.Size()
+	var last [1]byte
+	if size > 0 {
+		if _, err := f.ReadAt(last[:], size-1); err != nil {
+			return nil, torn, fmt.Errorf("%s: %w", path, err)
+		}
+	}
 	reader := csv.NewReader(f)
 	header, err := reader.Read()
 	if err == io.EOF && reader.InputOffset() == 0 {
-		return nil, nil
+		return nil, torn, nil
 	}
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+	if err != nil || !slices.Equal(header, auditHeader) {
+		return nil, torn, fmt.Errorf("%s:1: invalid audit header", path)
 	}
-	if !slices.Equal(header, auditHeader) {
-		return nil, fmt.Errorf("%s:1: invalid audit header", path)
-	}
-	var rows []row
-	line := 1
 	for {
+		start := reader.InputOffset()
 		r, err := reader.Read()
 		if err == io.EOF {
-			var last [1]byte
-			if _, err := f.ReadAt(last[:], reader.InputOffset()-1); err != nil {
-				return rows, fmt.Errorf("%s: %w", path, err)
+			return bad, torn, nil
+		}
+		var pe *csv.ParseError
+		if err != nil && !errors.As(err, &pe) {
+			return bad, -1, fmt.Errorf("%s: %w", path, err)
+		}
+		atEnd := reader.InputOffset() == size
+		var t time.Time
+		switch {
+		case err != nil:
+			err = fmt.Errorf("%s: %w", path, err) // a csv.ParseError carries the line
+		case atEnd && last[0] != '\n':
+			line, _ := reader.FieldPos(0)
+			err = fmt.Errorf("%s:%d: unterminated audit record", path, line)
+		default:
+			line, _ := reader.FieldPos(0)
+			if t, err = time.Parse(time.RFC3339, r[0]); err != nil {
+				err = fmt.Errorf("%s:%d: %w", path, line, err)
 			}
-			if last[0] != '\n' {
-				return rows, fmt.Errorf("%s:%d: unterminated audit record", path, line)
+		}
+		if err == nil {
+			fn(row{t, r[1], r[2], r[3]})
+			continue
+		}
+		bad = append(bad, err)
+		if atEnd && (last[0] != '\n' || pe != nil) { // also an open quote that ran to the end: the next append must not land inside it
+			if size-start > maxTorn {
+				return bad, -1, fmt.Errorf("%w: %d broken bytes at the end, repair it", err, size-start)
 			}
-			return rows, nil
+			torn = start
 		}
-		if err != nil {
-			return rows, fmt.Errorf("%s: %w", path, err) // a csv.ParseError carries the line
-		}
-		line, _ = reader.FieldPos(0)
-		t, err := time.Parse(time.RFC3339, r[0])
-		if err != nil {
-			return rows, fmt.Errorf("%s:%d: %w", path, line, err)
-		}
-		rows = append(rows, row{t, r[1], r[2], r[3]})
 	}
 }
 
-// checkData reads every audit log in dir like startup does; a missing dir has none.
+// readLog returns every row, or the first problem.
+func readLog(path string) ([]row, error) {
+	var rows []row
+	bad, _, err := scanLog(path, func(r row) { rows = append(rows, r) })
+	if err == nil && len(bad) > 0 {
+		err = bad[0]
+	}
+	return rows, err
+}
+
+// checkData reads every audit log in dir like startup does and reports every problem, also those startup skips; a missing dir has none.
 func checkData(dir string) (errs []error) {
 	files, _ := filepath.Glob(filepath.Join(dir, "*.csv"))
 	for _, f := range files {
-		if _, err := readLog(f); err != nil {
+		bad, _, err := scanLog(f, func(row) {})
+		errs = append(errs, bad...)
+		if err != nil {
 			errs = append(errs, err)
 		}
 	}
 	return errs
+}
+
+const tailRows = 200 // rows on the detail page
+
+// history is what a monitor keeps of its audit log: its state, running uptime sums and the newest rows.
+type history struct {
+	restored
+	up   uptimeSum
+	tail []row
+}
+
+func newHistory() *history { return &history{restored: restored{reported: map[string]string{}}} }
+
+func (h *history) add(e row) {
+	h.restored.add(e)
+	h.up.add(e)
+	h.tail = append(h.tail, e)
+	if len(h.tail) > 2*tailRows {
+		h.tail = slices.Clone(h.tail[len(h.tail)-tailRows:])
+	}
+}
+
+// loadHistory reads a monitor's log at startup: bad records are skipped and logged, a torn last record is cut off.
+func (a *App) loadHistory(path string) (*history, error) {
+	h := newHistory()
+	bad, torn, err := scanLog(path, h.add)
+	for _, b := range bad {
+		slog.Error("audit log: skipped a damaged record", "err", b)
+	}
+	if err != nil || torn < 0 {
+		return h, err
+	}
+	a.store.RLock()
+	defer a.store.RUnlock()
+	slog.Warn("audit log: cutting off a torn last record", "file", path, "offset", torn)
+	return h, os.Truncate(path, torn)
 }
 
 type restored struct {
@@ -113,31 +193,35 @@ type restored struct {
 }
 
 func restore(rows []row) restored {
-	r := restored{reported: map[string]string{}}
+	h := newHistory()
 	for _, e := range rows {
-		switch e.Event {
-		case "state":
-			if e.State == red && (r.state != red || r.reason == reasonNew) {
-				r.downSince = e.Time
-			} else if e.State != red && r.state == red {
-				r.upSince = e.Time
-			}
-			r.state, r.reason, r.since = e.State, e.Message, e.Time
-		case "paused":
-			r.paused, r.pauseReason, r.pausedState, r.pausedSince = true, e.Message, r.state, e.Time
-			r.pausedUntil, _ = time.Parse(time.RFC3339, e.State)
-			if e.Message == reasonNone {
-				r.pauseReason = ""
-			}
-		case "resumed":
-			r.paused, r.pauseReason, r.pausedUntil = false, "", time.Time{}
-		case "push":
-			r.lastPush = e.Time
-		case "reported":
-			r.reported[e.Message] = e.State
-		}
+		h.add(e)
 	}
-	return r
+	return h.restored
+}
+
+func (r *restored) add(e row) {
+	switch e.Event {
+	case "state":
+		if e.State == red && (r.state != red || r.reason == reasonNew) {
+			r.downSince = e.Time
+		} else if e.State != red && r.state == red {
+			r.upSince = e.Time
+		}
+		r.state, r.reason, r.since = e.State, e.Message, e.Time
+	case "paused":
+		r.paused, r.pauseReason, r.pausedState, r.pausedSince = true, e.Message, r.state, e.Time
+		r.pausedUntil, _ = time.Parse(time.RFC3339, e.State)
+		if e.Message == reasonNone {
+			r.pauseReason = ""
+		}
+	case "resumed":
+		r.paused, r.pauseReason, r.pausedUntil = false, "", time.Time{}
+	case "push":
+		r.lastPush = e.Time
+	case "reported":
+		r.reported[e.Message] = e.State
+	}
 }
 
 type uptime struct {
@@ -167,42 +251,61 @@ func fmtDuration(d time.Duration) string {
 	return fmt.Sprintf("%ds", int(d.Seconds()))
 }
 
+// uptimeSum adds up the time per state as rows are appended, so no page re-reads the log.
+type uptimeSum struct {
+	since, last time.Time
+	sum         map[string]time.Duration
+	cur, known  string
+	running     bool
+}
+
+func (u *uptimeSum) add(e row) {
+	if u.sum == nil {
+		u.sum, u.since, u.last = map[string]time.Duration{}, e.Time, e.Time
+	}
+	st := u.cur
+	if e.Event == "start" && u.running {
+		st = ""
+	}
+	u.sum[st] += e.Time.Sub(u.last)
+	u.last = e.Time
+	switch e.Event {
+	case "start":
+		u.running, u.cur = true, u.known
+	case "stop":
+		u.running, u.cur = false, ""
+	case "state":
+		u.known, u.cur = e.State, e.State
+		if e.Message == reasonNew {
+			u.known, u.cur = "", ""
+		}
+	}
+}
+
+func (u *uptimeSum) at(now time.Time) uptime {
+	var out uptime
+	if u.sum == nil {
+		return out
+	}
+	out.Since = u.since
+	g, r := u.sum[green], u.sum[red]
+	if u.running && u.cur == green {
+		g += now.Sub(u.last)
+	} else if u.running && u.cur == red {
+		r += now.Sub(u.last)
+	}
+	if g+r > 0 {
+		p := float64(g) / float64(g+r) * 100
+		out.Percent = &p
+	}
+	out.DowntimeSeconds = int64(r.Seconds())
+	return out
+}
+
 func computeUptime(rows []row, now time.Time) uptime {
-	var u uptime
-	if len(rows) == 0 {
-		return u
-	}
-	u.Since = rows[0].Time
-	sum := map[string]time.Duration{}
-	var cur, known string
-	last := rows[0].Time
-	running := false
+	var u uptimeSum
 	for _, e := range rows {
-		st := cur
-		if e.Event == "start" && running {
-			st = ""
-		}
-		sum[st] += e.Time.Sub(last)
-		last = e.Time
-		switch e.Event {
-		case "start":
-			running, cur = true, known
-		case "stop":
-			running, cur = false, ""
-		case "state":
-			known, cur = e.State, e.State
-			if e.Message == reasonNew {
-				known, cur = "", ""
-			}
-		}
+		u.add(e)
 	}
-	if running {
-		sum[cur] += now.Sub(last)
-	}
-	if up := sum[green] + sum[red]; up > 0 {
-		p := float64(sum[green]) / float64(up) * 100
-		u.Percent = &p
-	}
-	u.DowntimeSeconds = int64(sum[red].Seconds())
-	return u
+	return u.at(now)
 }

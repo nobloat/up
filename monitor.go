@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,8 @@ var monitorTypes = map[string]monitorType{
 	"metric": metricMonitor{},
 	"promql": promqlMonitor{},
 }
+
+const maxReason = 1000 // a reason is logged on every state change; push messages are free text
 
 const (
 	stateNew   = "new"
@@ -82,16 +85,18 @@ type Monitor struct {
 	nextCheck   time.Time
 	lastPush    time.Time
 	reported    map[string]string
+	up          uptimeSum // of every row logged, so pages never re-read the log
+	tail        []row     // the newest rows
 }
 
 func monitorPath(dir, name string) string {
 	return filepath.Join(dir, strings.ReplaceAll(name, ".", "_")+".csv")
 }
 
-func newMonitor(a *App, cfg *MonitorConfig, why string, rows []row) *Monitor {
+func newMonitor(a *App, cfg *MonitorConfig, why string, h *history) *Monitor {
 	m := &Monitor{app: a, name: cfg.Name, cfg: cfg, path: monitorPath(a.dataDir, cfg.Name),
-		wake: make(chan struct{}, 1)}
-	r := restore(rows)
+		wake: make(chan struct{}, 1), up: h.up, tail: h.tail}
+	r := h.restored
 	m.log(row{Event: "start", Message: why})
 	if r.state == "" {
 		r.state, r.reason, r.since = red, reasonNew, time.Now()
@@ -110,9 +115,15 @@ func newMonitor(a *App, cfg *MonitorConfig, why string, rows []row) *Monitor {
 	return m
 }
 
+// log appends r to the audit log and to what the monitor keeps in memory, also when the append fails (logged).
 func (m *Monitor) log(r row) error {
 	if r.Time.IsZero() {
 		r.Time = time.Now()
+	}
+	m.up.add(r)
+	m.tail = append(m.tail, r)
+	if len(m.tail) > 2*tailRows {
+		m.tail = slices.Clone(m.tail[len(m.tail)-tailRows:])
 	}
 	m.app.store.RLock() // an export waits for this append, and this append for an export
 	defer m.app.store.RUnlock()
@@ -121,6 +132,15 @@ func (m *Monitor) log(r row) error {
 		return err
 	}
 	return nil
+}
+
+// newest: up to tailRows rows of the log, newest first.
+func (m *Monitor) newest() []row {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	rows := slices.Clone(m.tail[max(0, len(m.tail)-tailRows):])
+	slices.Reverse(rows)
+	return rows
 }
 
 func (m *Monitor) config() *MonitorConfig {
@@ -171,6 +191,7 @@ func (m *Monitor) manualCheck() {
 
 func (m *Monitor) record(res checkResult, fatal bool) {
 	m.mu.Lock()
+	res.Reason = clip(res.Reason, maxReason)
 	m.lastCheck, m.checking = &res, false
 	placeholder := m.reason == reasonNew
 	state := green

@@ -52,7 +52,7 @@ up.nobloat.org {
 
 - `./data` must be writable by uid 65534: `sudo chown 65534:65534 data`
 - `up -check -config <dir>` validates a config, e.g. in CI (exit code 1 on any error)
-- A damaged audit log stops startup instead of being reset (`-check` reports it with file and line): back it up and repair it
+- A damaged record in an audit log is skipped and logged at startup, a torn last record (power cut, full disk) is cut off; only an unreadable file, a wrong header or a broken end larger than 64 KB stops startup. `-check` reports every damaged record with file and line
 
 ### Backup
 

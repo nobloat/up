@@ -178,14 +178,14 @@ func (a *App) apply(ctx context.Context, cfg *Config) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	logs := map[string][]row{}
+	logs := map[string]*history{}
 	for _, mc := range cfg.Monitors {
 		if a.monitors[mc.Name] == nil {
-			rows, err := readLog(monitorPath(a.dataDir, mc.Name))
+			h, err := a.loadHistory(monitorPath(a.dataDir, mc.Name))
 			if err != nil {
 				return fmt.Errorf("monitor %s: reading audit log: %w", mc.Name, err)
 			}
-			logs[mc.Name] = rows
+			logs[mc.Name] = h
 		}
 	}
 	a.cfg.Store(cfg)

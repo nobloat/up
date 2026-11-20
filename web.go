@@ -112,11 +112,9 @@ func filterViews(vs []monitorView, tags []string, state, q string) []monitorView
 }
 
 func (a *App) uptime(m *Monitor) *uptime {
-	rows, err := readLog(m.path)
-	if err != nil {
-		slog.Error("reading audit log", "monitor", m.name, "err", err)
-	}
-	u := computeUptime(rows, time.Now())
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	u := m.up.at(time.Now())
 	return &u
 }
 
@@ -636,9 +634,7 @@ func (a *App) uiPage(u *User, path string, q url.Values) (name string, p page) {
 	v.Uptime = a.uptime(m)
 	p.M = &v
 	p.Cfg = m.config()
-	rows, _ := readLog(m.path)
-	slices.Reverse(rows)
-	p.Log = rows[:min(len(rows), 200)]
+	p.Log = m.newest()
 	return "monitor", p
 }
 

@@ -101,21 +101,19 @@ func (m *Monitor) diff(n string) (change, bool) {
 	return c, false
 }
 
-func (m *Monitor) setReported(n, state string) error {
+func (m *Monitor) setReported(n, state string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.setReportedLocked(n, state)
+	m.setReportedLocked(n, state)
 }
 
-func (m *Monitor) setReportedLocked(n, state string) error {
-	if m.reported[n] == state {
-		return nil
+// setReportedLocked remembers what n was told. In memory also when the row cannot be written (logged by m.log),
+// so a full disk does not resend the notification every evaluation; a restart may send it once more.
+func (m *Monitor) setReportedLocked(n, state string) {
+	if m.reported[n] != state {
+		m.reported[n] = state
+		m.log(row{Event: "reported", State: state, Message: n})
 	}
-	if err := m.log(row{Event: "reported", State: state, Message: n}); err != nil {
-		return err
-	}
-	m.reported[n] = state
-	return nil
 }
 
 func (a *App) evalLoop(ctx context.Context) {
@@ -168,7 +166,7 @@ func (a *App) evaluate(lastSent map[string]time.Time) {
 		err := notifierTypes[nc.Type].send(a, nc, msg)
 		if err == nil {
 			for m, state := range sent {
-				err = errors.Join(err, m.setReported(name, state))
+				m.setReported(name, state)
 			}
 		}
 		if err != nil {
