@@ -2289,3 +2289,40 @@ func TestDialGuard(t *testing.T) {
 		t.Fatalf("webhook reached loopback: %v", err)
 	}
 }
+
+// UP-8: 10 failed basic auth logins in 10 minutes from one client get 429 until the window passes; other clients behind the proxy are not affected.
+func TestBasicAuthGuesses(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e := newEnv(t)
+		e.start(e.cfg(`"trusted_proxies": ["10.0.0.1/32"], "role": {"admin": ["up-admin"]}, "monitors": []`))
+		wrong := func(xff string) int {
+			req, _ := http.NewRequest("GET", "http://up/api/monitors", nil)
+			req.SetBasicAuth("admin", "guess")
+			req.Header.Set("X-Forwarded-For", xff)
+			resp, err := e.client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			return resp.StatusCode
+		}
+		for range maxGuesses {
+			if c := wrong("192.0.2.7"); c != 401 {
+				t.Fatalf("guess: %d", c)
+			}
+		}
+		if c := wrong("192.0.2.7"); c != 429 {
+			t.Fatalf("after %d guesses: %d", maxGuesses, c)
+		}
+		if resp, _ := e.do("GET", "/api/monitors", "admin", "", "X-Forwarded-For", "192.0.2.7"); resp.StatusCode != 429 {
+			t.Fatalf("right password while locked: %d", resp.StatusCode)
+		}
+		if resp, _ := e.do("GET", "/api/monitors", "admin", "", "X-Forwarded-For", "192.0.2.8"); resp.StatusCode != 200 {
+			t.Fatalf("other client: %d", resp.StatusCode)
+		}
+		sleep(guessWindow)
+		if resp, _ := e.do("GET", "/api/monitors", "admin", "", "X-Forwarded-For", "192.0.2.7"); resp.StatusCode != 200 {
+			t.Fatalf("after the window: %d", resp.StatusCode)
+		}
+	})
+}

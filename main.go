@@ -115,6 +115,8 @@ type App struct {
 
 	subMu sync.Mutex
 	subs  map[*sub]struct{}
+
+	guesses guesses
 }
 
 func run(ctx context.Context, path string, ln net.Listener, dial dialFunc) error {

@@ -105,7 +105,7 @@ heartbeat.urls = https://hc-ping.com/<uuid>
 |---|---|---|
 | `base_url` | required | public URL, for links in notifications |
 | `data_dir` | required | audit logs, one CSV per monitor |
-| `auth.user`, `auth.password` | required without `role.*` | basic auth for the UI and API, always admin |
+| `auth.user`, `auth.password` | required without `role.*` | basic auth for the UI and API, always admin; 10 failed logins in 10 minutes from one client (behind a trusted proxy: the address it adds to `X-Forwarded-For`) answer 429 until the 10 minutes are over, failures are logged |
 | `trusted_proxies` | | CIDRs whose `Remote-User` / `Remote-Groups` headers are believed, see [single sign-on](#single-sign-on); give the proxy's own address (`/32`), not a whole network |
 | `role.viewer`, `role.editor`, `role.admin` | | IdP groups per role |
 | `access.<group>` | | tags whose monitors the group sees, `*` for all |
