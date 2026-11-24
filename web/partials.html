@@ -1,15 +1,16 @@
 {{/* nobloat/ui v1 partials: copy unchanged to web/partials.html and parse it before the pages.
 A page defines "main" and runs {{template "nb-layout" .}}; it may also define "head" (extra <head> tags),
-"keys" (page shortcuts for the keys line, each starting with " · "), "help" (extra <tr> rows) and "scripts".
+"keys" (page shortcuts, each starting with " · ", shown in the ? help), "help" (extra <tr> rows) and "scripts".
 
 The page value (dot) needs:
   .Lang .Title .Here .Q .Version string     .Err .Notice string (flash); the footer (product, src, version) shows only with .User
   .Brand  {App, Char, Name, Color, ColorDark, Logo, LogoDark, Icon, Design string}
           App "bill", Char "€" (the ][€ glyph). Name, Logo, LogoDark, Icon only for a custom brand.
           Color/ColorDark set --brand/--brand-dark (#rrggbb); Design "" (graphite) or "paper".
-  .Nav    []{Href, Label, Key string; On bool}   empty hides the nav; Key is the g+letter shortcut
+  .Nav    []{Href, Label, Key string; On bool}   empty hides the nav; Key is the g+letter shortcut. An app with its own
+          sidebar leaves it empty and gives the sidebar id="nav": ☰ opens it on phones; a[data-g] anywhere is a g+letter key
   .Search string (search form action, "" = none)  .SearchAPI string (live search endpoint, optional)
-  .User .UserURL .LogoutURL .SettingsURL string  (⚙ next to logout; settings hold account, preferences, app settings;
+  .User .UserURL .LogoutURL .SettingsURL string  (all in the user menu; settings hold account, preferences, app settings;
           logout is a POST form to LogoutURL, so a link or image cannot sign anyone out)
   .Crumbs []{Href, Label string}               breadcrumbs above the title, the last one is the current page (no Href)
   .SessionEnd .SessionRenew string             RFC 3339 end of the sign-in and a GET url that extends it (answer {end}); optional
@@ -49,27 +50,36 @@ The page value (dot) needs:
 {{define "nb-header"}}<header class="app">
 {{template "nb-logo" .}}
 {{with .Search}}<form class="gsearch" action="{{.}}" role="search"{{with $.SearchAPI}} data-api="{{.}}"{{end}}>
-<input id="q" name="q" value="{{$.Q}}" placeholder="{{$.T "search.placeholder"}}" aria-label="{{$.T "search.placeholder"}}" autocomplete="off"><kbd>/</kbd>
+<input id="q" name="q" value="{{$.Q}}" placeholder="{{$.T "search.placeholder"}}" aria-label="{{$.T "search.placeholder"}}" autocomplete="off">
 <div class="results" id="results" hidden></div>
 </form>{{end}}
-<button type="button" id="palbtn" class="palbtn" title="{{.T "palette.title"}}" aria-label="{{.T "palette.title"}}" hidden><span aria-hidden="true">⌘</span><kbd>Ctrl K</kbd></button>
 <span class="right">
-{{template "nb-langtheme" .}}
-{{with .User}}{{if $.UserURL}}<a class="who" href="{{$.UserURL}}">{{.}}</a>{{else}}<span class="who">{{.}}</span>{{end}}{{end}}
-{{with .SettingsURL}}<a class="round" href="{{.}}" title="{{$.T "nav.settings"}}" aria-label="{{$.T "nav.settings"}}"><i class="icon-cog" aria-hidden="true"></i></a>{{end}}
-{{with .LogoutURL}}<form method="post" action="{{.}}" class="logout"><button class="round" title="{{$.T "nav.logout"}}" aria-label="{{$.T "nav.logout"}}"><i class="icon-power" aria-hidden="true"></i></button></form>{{end}}
-{{if .Nav}}<button type="button" id="menu" class="round" aria-label="{{.T "nav.menu"}}" aria-expanded="false"><i class="icon-menu" aria-hidden="true"></i></button>{{end}}
+{{if .Search}}<button type="button" id="searchbtn" class="round" aria-label="{{.T "search.placeholder"}}" hidden><i class="icon-search" aria-hidden="true"></i></button>{{end}}
+{{template "nb-usermenu" .}}
+<button type="button" id="menu" class="round" aria-label="{{.T "nav.menu"}}" aria-expanded="false" hidden><i class="icon-menu" aria-hidden="true"></i></button>
 </span>
 </header>
 {{with .Nav}}<nav class="app" id="nav">
 {{range .}}<a href="{{.Href}}"{{with .Key}} data-g="{{.}}"{{end}}{{if .On}} class="on" aria-current="page"{{end}}>{{.Label}}</a>
-{{end}}<span class="g"><kbd>g</kbd> + {{$.T "nav.letter"}}</span>
-</nav>{{end}}{{end}}
+{{end}}</nav>{{end}}{{end}}
+
+{{/* the user menu: everything that is set once and used rarely; a native details element, so it opens without JS */}}
+{{define "nb-usermenu"}}<details class="usermenu">
+<summary class="round" title="{{.T "nav.usermenu"}}" aria-label="{{.T "nav.usermenu"}}"><i class="icon-user" aria-hidden="true"></i></summary>
+<div class="umenu">
+{{with .User}}<p class="uname">{{if $.UserURL}}<a href="{{$.UserURL}}">{{.}}</a>{{else}}{{.}}{{end}}</p>{{end}}
+<button type="button" id="theme" hidden><i class="icon-contrast" aria-hidden="true"></i> {{.T "prefs.theme"}}</button>
+<p class="ulang"><span>{{.T "prefs.lang"}}</span><span><a href="/lang/de?rd={{.Here}}"{{if eq .Lang "de"}} class="on" aria-current="true"{{end}}>de</a> · <a href="/lang/en?rd={{.Here}}"{{if eq .Lang "en"}} class="on" aria-current="true"{{end}}>en</a></span></p>
+{{with .SettingsURL}}<a href="{{.}}"><i class="icon-cog" aria-hidden="true"></i> {{$.T "nav.settings"}}</a>{{end}}
+<button type="button" data-palette hidden><i class="icon-list" aria-hidden="true"></i> {{.T "palette.title"}} <kbd>Ctrl K</kbd></button>
+<button type="button" data-help hidden><i class="icon-help" aria-hidden="true"></i> {{.T "help.title"}} <kbd>?</kbd></button>
+{{with .LogoutURL}}<form method="post" action="{{.}}" class="logout"><button><i class="icon-power" aria-hidden="true"></i> {{$.T "nav.logout"}}</button></form>{{end}}
+</div>
+</details>{{end}}
 
 {{define "nb-flash"}}{{with .Err}}<p class="flash" role="alert">{{.}}</p>{{end}}{{with .Notice}}<p class="flash ok" role="status">{{.}}</p>{{end}}{{end}}
 
-{{define "nb-foot"}}{{if .Nav}}<p class="keys"><kbd>?</kbd> {{.T "key.help"}}{{if .Search}} · <kbd>/</kbd> {{.T "key.search"}}{{end}}{{block "keys" .}}{{end}}</p>{{end}}
-{{if .User}}<footer class="foot">
+{{define "nb-foot"}}{{if .User}}<footer class="foot">
 <b>][{{.Brand.Char}} nobloat/{{.Brand.App}}</b>
 <span>{{.T "foot.made"}} <a href="https://spiessknafl.at/peter" rel="noopener">cinemast</a> · <a href="https://nobloat.org" rel="noopener">nobloat.org</a> · <a href="https://github.com/nobloat/{{.Brand.App}}" rel="noopener">src</a> · {{.Version}}</span>
 </footer>{{end}}
@@ -88,6 +98,7 @@ The page value (dot) needs:
 <tr><td><kbd>Esc</kbd></td><td>{{.T "help.esc"}}</td></tr>
 {{block "help" .}}{{end}}
 </table>
+<p class="keys">{{.T "help.page"}}{{block "keys" .}}{{end}}</p>
 <form method="dialog" class="row end"><button>{{.T "btn.close"}} <kbd>Esc</kbd></button></form>
 </dialog>
 <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title" hidden></h2><p id="confirm-text"></p><form method="dialog" class="row end"><button value="no">{{.T "btn.cancel"}} <kbd>Esc</kbd></button><button value="yes" class="pri" autofocus>{{.T "btn.ok"}} <kbd>Enter</kbd></button></form></dialog>

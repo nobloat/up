@@ -1949,7 +1949,7 @@ func TestSSO(t *testing.T) {
 			t.Fatalf("viewer list: %d %s", c, b)
 		}
 		if c, b := as("GET", "/", "up-viewer,team-a"); c != 200 || !strings.Contains(b, "/monitor/web") || strings.Contains(b, "/monitor/db") || strings.Contains(b, "/check") ||
-			!strings.Contains(b, `<a class="who" href="https://auth.example/settings">alice</a>`) || !strings.Contains(b, `<form method="post" action="https://auth.example/logout"`) {
+			!strings.Contains(b, `<a href="https://auth.example/settings">alice</a>`) || !strings.Contains(b, `<form method="post" action="https://auth.example/logout"`) {
 			t.Fatalf("viewer page: %d %s", c, b)
 		}
 		for path, want := range map[string]int{"/api/monitors/db": 404, "/monitor/db": 404, "/api/monitors/web": 200} {
@@ -1975,7 +1975,7 @@ func TestSSO(t *testing.T) {
 		if c, _ := as("GET", "/", "team-a"); c != 403 {
 			t.Fatalf("no role: %d", c)
 		}
-		if b := e.get("/"); !strings.Contains(b, "/api/monitors/db/check") || strings.Contains(b, `class="who"`) { // basic auth stays admin, without SSO header
+		if b := e.get("/"); !strings.Contains(b, "/api/monitors/db/check") || strings.Contains(b, `class="uname"`) { // basic auth stays admin, without SSO header
 			t.Fatalf("basic auth: %s", b)
 		}
 	})

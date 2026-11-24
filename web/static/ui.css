@@ -73,14 +73,11 @@ header.app .prefs { display: inline-flex; align-items: center; gap: .9rem; } /* 
 #menu { display: none; }
 nav.app { display: flex; gap: 1.6rem; padding: .8rem 0 0; flex-wrap: wrap; align-items: baseline; }
 nav.app a { color: var(--muted); text-decoration: none; padding-bottom: .45rem; }
-nav.app a u { text-decoration-thickness: 1px; text-underline-offset: 3px; }
 nav.app a.on { color: var(--fg); border-bottom: 2px solid var(--fg); }
 nav.app .g { margin-left: auto; font-size: .8em; color: var(--muted); }
 .gsearch { position: relative; flex: 1; min-width: 12rem; max-width: 26rem; }
 .gsearch input { width: 100%; height: 2rem; padding: 0 2rem 0 .7rem; border-radius: var(--r); background: var(--chip); border: 1px solid transparent; }
 .gsearch input:focus { outline: none; border-color: var(--fg); background: var(--bg); box-shadow: none; }
-.gsearch kbd { position: absolute; right: .6rem; top: 50%; transform: translateY(-50%); pointer-events: none; }
-.gsearch input:focus ~ kbd, .gsearch input:not(:placeholder-shown) ~ kbd { display: none; }
 .results { position: absolute; left: 0; right: 0; min-width: min(30rem, 90vw); top: 2.4rem; z-index: 20; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: 0 10px 30px rgb(0 0 0 / .15); padding: .5rem 0; max-height: 70vh; overflow: auto; }
 .results .grp { padding: .5rem 1rem .2rem; color: var(--muted); font-size: .8em; text-transform: uppercase; letter-spacing: .06em; }
 .results a { padding: .3rem 1rem; display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
@@ -103,9 +100,22 @@ nav.app .g { margin-left: auto; font-size: .8em; color: var(--muted); }
 .who { color: var(--muted); }
 .skip:not(:focus) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .skip:focus { position: absolute; left: 16px; top: .5rem; z-index: 80; background: var(--bg); padding: .3rem .7rem; } /* first Tab: jump past header and nav */
-.palbtn { display: inline-flex; gap: .35rem; align-items: center; height: 2rem; padding: 0 .6rem; border-radius: var(--r); color: var(--muted); background: none; border: 1px solid var(--line); }
-.palbtn:hover { color: var(--fg); }
-.palbtn kbd { margin: 0; }
+/* user menu: a native details in the header holding theme, language, settings, commands, shortcuts and sign out */
+.usermenu { position: relative; }
+.usermenu > summary { list-style: none; }
+.usermenu > summary::-webkit-details-marker { display: none; }
+.usermenu[open] > summary { color: var(--fg); }
+.umenu { position: absolute; right: 0; top: calc(100% + .4rem); z-index: 30; display: grid; min-width: 15rem; padding: .35rem; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: 0 10px 30px rgb(0 0 0 / .15); color: var(--fg); white-space: nowrap; }
+header.app .umenu > :is(a, button, p), header.app .umenu > form > button { display: flex; align-items: center; gap: .5rem; width: 100%; height: auto; margin: 0; padding: .35rem .6rem; border: 0; border-radius: var(--r); background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; box-shadow: none; }
+header.app .umenu > :is(a, button):hover, header.app .umenu > form > button:hover { background: var(--chip); }
+.umenu > [hidden] { display: none; }
+.umenu > form { display: block; }
+header.app .umenu > .uname { font-weight: 600; border-bottom: 1px solid var(--line); border-radius: 0; margin-bottom: .25rem; padding-bottom: .5rem; }
+header.app .umenu > .ulang { justify-content: space-between; }
+.umenu .ulang a { text-decoration: none; color: var(--muted); }
+.umenu .ulang a.on { color: var(--fg); font-weight: 600; }
+.umenu kbd { margin-left: auto; }
+#searchbtn { display: none; }
 /* breadcrumbs: where am I, one click up; phones show only "← parent" (the title says where you are) */
 .crumbs ol { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem .5rem; margin: 1.2rem 0 -.8rem; padding: 0; color: var(--muted); font-size: .9em; }
 .crumbs li + li::before { content: "/"; margin-right: .5rem; color: var(--line); }
@@ -285,6 +295,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .round:hover { color: var(--fg); }
 kbd { font: .78em var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 .3em; color: var(--muted); }
 button kbd, .btn kbd { margin-left: .4em; }
+:is(button, .btn, label, nav.app, .pager, .tabs, .chips) kbd:not(.umenu *, details.more .menu *) { display: none; } /* shortcuts live in ? and the palette, not on the controls */
 /* busy: ui.js sets aria-busy on the submit button; the spinner replaces nothing, so the label stays readable */
 [aria-busy="true"]::after, .spin { content: ""; display: inline-block; width: .8em; height: .8em; margin-left: .5em; vertical-align: -.1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -631,7 +642,6 @@ details.audit { padding: .6rem 1rem; }
 /* one unmistakable action: the primary button is filled */
 :is(button, .btn).pri { background: var(--accent); color: light-dark(#fff, #0f1115); border-color: var(--accent); box-shadow: none; }
 :is(button, .btn).pri:hover { background: color-mix(in srgb, var(--accent) 85%, var(--fg)); border-color: transparent; }
-:is(button, .btn).pri kbd { color: inherit; border-color: currentColor; opacity: .75; }
 
 /* ---- paper: a form on paper, filled in and drawn by hand, tidy: pen strokes instead of printed rules (a gently wobbling
    line, drawn in the text color), outlines with uneven corners, green-bar rows, a highlighter, chips circled with the pen ---- */
@@ -659,7 +669,6 @@ details.audit { padding: .6rem 1rem; }
 [data-design="paper"] :is(button:not(.round), .btn):hover { background-color: color-mix(in srgb, var(--accent) 8%, transparent); transform: rotate(-.6deg); }
 [data-design="paper"] :is(button, .btn).pri { color: var(--accent); background: transparent; border: 1.75px solid var(--accent); font-weight: bold; } /* an outline in pen blue, not graphite's filled button */
 [data-design="paper"] :is(button, .btn).pri:hover { background-color: color-mix(in srgb, var(--accent) 12%, transparent); }
-[data-design="paper"] :is(button, .btn).pri kbd { color: inherit; opacity: 1; }
 [data-design="paper"] :is(button, .btn):is(.danger, .del) { color: var(--c-text); border-color: var(--c-text); }
 [data-design="paper"] :is(input, select, textarea):focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 [data-design="paper"] .gsearch input { background: var(--chip); border-color: transparent; }
@@ -678,8 +687,11 @@ details.audit { padding: .6rem 1rem; }
 @media (max-width: 40rem) {
   body { padding: .6rem 16px 2rem; }
   header.app { gap: .6rem; }
-  header.app .right .who, header.app .logo .name, nav.app .g { display: none; }
-  #menu { display: inline; }
+  header.app .logo .name { display: none; }
+  #searchbtn:not([hidden]) { display: inline-grid; }
+  header.app:has(#searchbtn:not([hidden])):not(.searching) .gsearch { display: none; } /* the search opens over the header row */
+  .umenu { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; min-width: 0; } /* bottom sheet */
+  #menu:not([hidden]) { display: inline-grid; }
   nav.app { display: none; }
   /* burger menu: ☰ opens the nav as a vertical list with full-width rows */
   nav.app.open { display: flex; flex-direction: column; gap: 0; padding: .3rem 0; border-bottom: 1px solid var(--line); }
@@ -700,10 +712,8 @@ details.audit { padding: .6rem 1rem; }
   /* phones: create, edit, delete and copy buttons show only their icon; the text stays for screen readers (font-size 0, icon sized in rem).
      The page's primary action (.pri) keeps its text and spans the width, in the page head and at a form's end */
   :is(button, .btn):is(.new, .edit, .del, .copy):not(.round, .pri):not(dialog *) { font-size: 0; padding: .35rem .6rem; line-height: 0; }
-  :is(button, .btn):is(.new, .edit, .del, .copy):not(.round, .pri):not(dialog *) kbd { display: none; }
   :is(button, .btn):is(.new, .edit, .del, .copy):not(.round, .pri):not(dialog *)::before { width: 1.05rem; height: 1.05rem; margin: 0; vertical-align: middle; }
   main :is(.pagehead, .row) > :is(button, .btn).pri:not(dialog *) { flex: 1 0 100%; text-align: center; padding-block: .5rem; }
-  main :is(.pagehead, .row) > :is(button, .btn).pri:not(dialog *) kbd { display: none; }
   main .pagehead > .row:has(> .pri) { flex: 1 0 100%; } /* a head row holding it (sort links + New) gets the width too */
   main .row > .cancel:not(dialog *) { display: none; } /* a page form's Cancel: "← parent" and Back do the same; dialogs keep theirs */
   header.app .prefs { display: none; } /* language and theme live on the settings page on phones */

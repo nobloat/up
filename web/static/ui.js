@@ -36,7 +36,7 @@ document.addEventListener('submit', async e => {
   setTimeout(() => f.nbSent = false, 3000);
 });
 
-// theme: auto (follows the OS), light or dark; the header toggle cycles, the settings page has radios (#theme-seg);
+// theme: auto (follows the OS), light or dark; the user menu's row cycles, the settings page has radios (#theme-seg);
 // stored in localStorage, the <head> script applies it before first paint
 {
   const b = $('#theme'), root = document.documentElement, radios = document.querySelectorAll('input[name=nb-theme]');
@@ -44,7 +44,9 @@ document.addEventListener('submit', async e => {
   const cur = () => Object.hasOwn(names, root.dataset.theme ?? '') ? root.dataset.theme ?? '' : ''; // a stray stored value counts as auto
   const show = () => {
     const t = cur();
-    if (b) { b.innerHTML = `<i class="icon-${names[t][0]}" aria-hidden="true"></i>`; b.title = (T['js.theme'] || 'theme') + ': ' + names[t][1]; b.setAttribute('aria-label', b.title); b.hidden = false; }
+    if (b && b.closest('.umenu')) b.innerHTML = `<i class="icon-${names[t][0]}" aria-hidden="true"></i> ` + esc((T['js.theme'] || 'theme') + ': ' + names[t][1]); // the user menu's row
+    else if (b) { b.innerHTML = `<i class="icon-${names[t][0]}" aria-hidden="true"></i>`; b.title = (T['js.theme'] || 'theme') + ': ' + names[t][1]; b.setAttribute('aria-label', b.title); } // ◐ on sign-in pages (nb-langtheme)
+    if (b) b.hidden = false;
     radios.forEach(r => r.checked = r.value === t);
   };
   const set = t => {
@@ -65,13 +67,20 @@ document.addEventListener('submit', async e => {
   };
   designs.forEach(r => r.onchange = () => setDesign(r.value));
   showDesign();
+  // phones: the search icon opens the search over the header row (CSS); it stays open while it holds a query
+  const sb = $('#searchbtn'), hd = $('header.app'), q = $('#q');
+  if (sb && q) {
+    sb.hidden = false;
+    const open = () => { hd.classList.add('searching'); q.focus(); };
+    sb.onclick = open; window.openSearch = open;
+    if (q.value) hd.classList.add('searching');
+    q.addEventListener('blur', () => { if (!q.value) setTimeout(() => { if (document.activeElement !== q) hd.classList.remove('searching'); }, 150); });
+  }
+  document.querySelectorAll('.usermenu [data-palette], .usermenu [data-help]').forEach(b => b.hidden = false);
+  if (/Mac|iPhone|iPad/.test(navigator.platform)) document.querySelectorAll('.usermenu [data-palette] kbd').forEach(k => k.textContent = '⌘K');
   const m = $('#menu'), nav = $('#nav');
+  if (m && nav) m.hidden = false;
   if (m && nav) m.onclick = () => { const open = nav.classList.toggle('open'); m.setAttribute('aria-expanded', open); m.innerHTML = `<i class="icon-${open ? 'x' : 'menu'}" aria-hidden="true"></i>`; };
-  // nav shortcut letters: underline the first matching letter of each label
-  document.querySelectorAll('nav.app a[data-g]').forEach(a => {
-    const t = a.textContent, i = t.toLowerCase().indexOf(a.dataset.g);
-    if (i >= 0) a.innerHTML = esc(t.slice(0, i)) + '<u>' + esc(t[i]) + '</u>' + esc(t.slice(i + 1));
-  });
 }
 
 // live search: <form class="gsearch" data-api="/api/search"> gets {"group": [{url, title, sub}]}; without data-api it is a plain GET form
@@ -320,14 +329,14 @@ document.addEventListener('input', e => { if (e.target.getAttribute?.('aria-inva
       else if (window.pageKeys?.[k] && /^[AC]-/.test(k)) { e.preventDefault(); window.pageKeys[k](e); }
       return;
     }
-    if (g) { g = false; const a = $(`nav.app a[data-g="${CSS.escape(e.key)}"]`); if (a) { e.preventDefault(); go(a); } return; }
+    if (g) { g = false; const a = $(`a[data-g="${CSS.escape(e.key)}"]`); if (a) { e.preventDefault(); go(a); } return; }
     if (window.pageKeys?.[k]) { e.preventDefault(); if (await window.pageKeys[k](e) !== false) return; }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const r = rows(), tabs = visible('.tabs a'), cur = tabs.findIndex(a => a.classList.contains('on'));
     const step = d => { sel = Math.max(0, Math.min(sel + d, r.length - 1)); mark(); r[sel]?.scrollIntoView({block: 'nearest'}); };
     const keys = {
       g: () => g = true,
-      '/': () => $('#q')?.focus(),
+      '/': () => window.openSearch ? window.openSearch() : $('#q')?.focus(),
       '?': () => $('#help')?.showModal(),
       j: () => step(1), k: () => step(-1),
       Enter: () => { if (r[sel]) location = r[sel].dataset.href; },
@@ -389,8 +398,8 @@ document.addEventListener('input', e => { if (e.target.getAttribute?.('aria-inva
 }
 
 // overflow menus close on a click anywhere else and on Esc (a <details> stays open by itself)
-document.addEventListener('click', e => document.querySelectorAll('details.more[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }));
-document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; const d = document.querySelector('details.more[open]'); if (d) { d.open = false; d.querySelector('summary').focus(); e.stopImmediatePropagation(); } }, true);
+document.addEventListener('click', e => document.querySelectorAll('details:is(.more, .usermenu)[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }));
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; const d = document.querySelector('details:is(.more, .usermenu)[open]'); if (d) { d.open = false; d.querySelector('summary').focus(); e.stopImmediatePropagation(); } }, true);
 
 // overflow menus open towards the side with room
 document.addEventListener('toggle', e => {
@@ -421,8 +430,8 @@ labelTables();
   const text = el => [...el.childNodes].filter(n => n.nodeName !== 'KBD').map(n => n.textContent).join('').replace(/\s+/g, ' ').trim();
   const gather = () => {
     const c = [];
-    document.querySelectorAll('nav.app a[data-g]').forEach(a => c.push({label: text(a), sub: 'g ' + a.dataset.g, run: () => location = a.href}));
-    document.querySelectorAll('header.app .right :is(a, form button)[aria-label]').forEach(a => c.push({label: a.getAttribute('aria-label'), sub: '', run: () => a.href ? location = a.href : a.click()})); // settings, logout (a POST form)
+    document.querySelectorAll('a[data-g]').forEach(a => c.push({label: text(a), sub: 'g ' + a.dataset.g, run: () => location = a.href}));
+    document.querySelectorAll('.usermenu :is(a[href]:not(.ulang a), form button)').forEach(a => c.push({label: text(a), sub: '', run: () => a.href ? location = a.href : a.click()})); // settings, logout (a POST form)
     document.querySelectorAll('main [data-key]').forEach(el => { if (el.offsetParent !== null) c.push({label: text(el) || el.getAttribute('aria-label') || el.title, sub: el.dataset.key, run: () => el.click()}); });
     if ($('#theme')) c.push({label: T['palette.theme'] || 'switch theme', sub: '◐', run: () => $('#theme').click()});
     c.push({label: T['palette.design'] || 'switch design', sub: 'graphite · paper', run: () => setDesign(document.documentElement.dataset.design === 'paper' ? 'graphite' : 'paper')});
@@ -449,8 +458,6 @@ labelTables();
     ul.querySelector('.sel')?.scrollIntoView({block: 'nearest'});
   };
   const run = i => { const h = hits[i]; if (!h) return; pal.close(); h.c.run(); };
-  const pb = $('#palbtn');
-  if (pb) { pb.hidden = false; pb.onclick = () => window.openPalette(); if (/Mac|iPhone|iPad/.test(navigator.platform)) $('kbd', pb).textContent = '⌘K'; }
   window.openPalette = () => { if (pal.open) return; cmds = gather(); inp.value = ''; sel = 0; render(); pal.showModal(); inp.focus(); };
   inp.addEventListener('input', () => { sel = 0; render(); });
   inp.addEventListener('keydown', e => {
@@ -552,7 +559,8 @@ document.addEventListener('close', e => { if (location.hash === '#' + e.target.i
 document.addEventListener('click', async e => {
   const o = e.target.closest('[data-open]'), c = e.target.closest('[data-copy]');
   if (o) { e.preventDefault(); openDlg(o.dataset.open); }
-  else if (e.target.closest('[data-palette]')) window.openPalette();
+  else if (e.target.closest('[data-palette]')) { e.target.closest('details')?.removeAttribute('open'); window.openPalette(); }
+  else if (e.target.closest('[data-help]')) { e.target.closest('details')?.removeAttribute('open'); $('#help')?.showModal(); }
   else if (e.target.closest('[data-close]')) e.target.closest('dialog').close();
   else if (c) { await navigator.clipboard.writeText(c.dataset.copy).catch(() => {}); c.classList.add('done'); setTimeout(() => c.classList.remove('done'), 1200); } // the icon turns into a check
 });
