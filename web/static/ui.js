@@ -329,6 +329,7 @@ document.addEventListener('input', e => { if (e.target.getAttribute?.('aria-inva
       else if (window.pageKeys?.[k] && /^[AC]-/.test(k)) { e.preventDefault(); window.pageKeys[k](e); }
       return;
     }
+    if (k === 'Enter' && e.target.closest('a[href], button, summary')) return; // the browser activates the focused control (Join, Save, a link)
     if (g) { g = false; const a = $(`a[data-g="${CSS.escape(e.key)}"]`); if (a) { e.preventDefault(); go(a); } return; }
     if (window.pageKeys?.[k]) { e.preventDefault(); if (await window.pageKeys[k](e) !== false) return; }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
