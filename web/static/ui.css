@@ -406,10 +406,10 @@ tfoot td { border-bottom: 0; color: var(--muted); }
 /* sign: an explicit +amount is green, −amount red; an amount without a sign stays neutral (a price, a total, a balance) */
 .money.pos { --c: var(--green); color: var(--c-text); }
 .money.neg { --c: var(--red); color: var(--c-text); }
-/* an input with a unit: <span class="affix"><input data-money="1.234,56" inputmode="decimal"><span>€</span></span> */
-.affix { position: relative; display: flex; }
-.affix input { flex: 1; text-align: right; padding-right: 2.2em; font-variant-numeric: tabular-nums; }
-.affix > span { position: absolute; right: .7em; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+/* an input with a unit after it, any length (€, %, Tage, years): <span class="affix"><input data-money="1.234,56" inputmode="decimal"><span>€</span></span> */
+.affix { display: flex; align-items: center; gap: .5em; }
+.affix input { flex: 1; text-align: right; font-variant-numeric: tabular-nums; }
+.affix > span { flex: none; color: var(--muted); }
 /* ids: every object id has a type prefix (cus_, inv_, usr_ …), shown monospace and copyable */
 code.id { white-space: nowrap; }
 .bar { display: inline-block; height: .7em; background: var(--accent); border-radius: 1px; vertical-align: middle; }
