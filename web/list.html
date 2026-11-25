@@ -8,14 +8,14 @@
 {{range .Monitors}}{{template "row" ($.Row .)}}
 {{end}}</tbody>
 </table>
-<div class="empty">{{if .Total}}<p>{{.T "list.nomatch"}}</p><a class="btn" href="/">{{.T "list.all"}}</a>{{else}}<p>{{.T "list.none"}}</p>{{if .Edit}}<a class="btn new" href="/new">{{.T "btn.new.monitor"}}</a>{{end}}{{end}}</div>
+<div class="empty">{{if .Total}}<p>{{.T "list.nomatch"}}</p><a class="btn" href="/"><i class="icon-list" aria-hidden="true"></i> {{.T "list.all"}}</a>{{else}}<p>{{.T "list.none"}}</p>{{if .Edit}}<a class="btn new" href="/new">{{.T "btn.new.monitor"}}</a>{{end}}{{end}}</div>
 </div>{{end}}
 
-{{define "keys"}} · <kbd>j</kbd>/<kbd>k</kbd> {{.T "key.row"}} · <kbd>Enter</kbd> {{.T "key.open"}} · <kbd>1</kbd>…<kbd>5</kbd> {{.T "key.filter"}}{{if .Edit}} · <kbd>c</kbd> {{.T "key.new"}} · <kbd>r</kbd> {{.T "key.check"}} · <kbd>p</kbd> {{.T "key.pause"}}{{end}}{{end}}
+{{define "keys"}}<span data-needs="main :is(tr, .rows > li)[data-href]"> · <kbd>j</kbd>/<kbd>k</kbd> {{.T "key.row"}} · <kbd>Enter</kbd> {{.T "key.open"}}</span><span data-needs="main .chips a.chip"> · <kbd>1</kbd>…<kbd>5</kbd> {{.T "key.filter"}}</span>{{if .Edit}} · <kbd>c</kbd> {{.T "key.new"}} · <kbd>r</kbd> {{.T "key.check"}} · <kbd>p</kbd> {{.T "key.pause"}}{{end}}{{end}}
 
 {{define "chips"}}<nav class="chips" aria-label="{{.T "list.filter"}}">
-<a class="chip{{if not .State}} on{{end}}" href="{{.Link "state" ""}}">{{.T "state.all"}}<span class="n">{{.Total}}</span></a>
-{{range .States}}<a class="chip{{if eq .State $.State}} on{{end}}" href="{{$.Link "state" .State}}">{{if eq .State "paused"}}<i class="icon-pause" aria-hidden="true"></i>{{else}}<span class="dot {{st .State}} still" aria-hidden="true"></span>{{end}}{{$.T (print "state." .State)}}<span class="n">{{.N}}</span></a>
+<a class="chip{{if not .State}} on{{end}}" href="{{.Link "state" ""}}"><i class="icon-list" aria-hidden="true"></i> {{.T "state.all"}}<span class="n">{{.Total}}</span></a>
+{{range .States}}<a class="chip{{if eq .State $.State}} on{{end}}" href="{{$.Link "state" .State}}"><i class="icon-{{sticon .State}}" aria-hidden="true"></i> {{$.T (print "state." .State)}}<span class="n">{{.N}}</span></a>
 {{end}}
 {{with .TagLinks .Tags}}<span class="sep"></span>{{template "tags" .}}{{end}}
 </nav>{{end}}

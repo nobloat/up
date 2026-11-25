@@ -1684,7 +1684,7 @@ func TestAPIAndUI(t *testing.T) {
 			t.Fatal("paused monitor's light is not pale")
 		}
 		if b := e.get("/?state=paused"); !strings.Contains(b, `href="/monitor/web"`) || strings.Contains(b, `href="/monitor/internal"`) ||
-			!strings.Contains(b, `<a class="chip on" href="/">`) || !strings.Contains(b, `<i class="icon-pause" aria-hidden="true"></i>paused<span class="n">1</span>`) {
+			!strings.Contains(b, `<a class="chip on" href="/">`) || !strings.Contains(b, `<i class="icon-pause" aria-hidden="true"></i> paused<span class="n">1</span>`) {
 			t.Fatalf("paused filter: %s", b)
 		}
 		resp, _ = e.post("/api/monitors/internal/check", "", append(form, "Referer", "http://evil.example/steal")...)

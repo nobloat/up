@@ -76,7 +76,7 @@ document.addEventListener('submit', async e => {
     if (q.value) hd.classList.add('searching');
     q.addEventListener('blur', () => { if (!q.value) setTimeout(() => { if (document.activeElement !== q) hd.classList.remove('searching'); }, 150); });
   }
-  document.querySelectorAll('.usermenu [data-palette], .usermenu [data-help]').forEach(b => b.hidden = false);
+  document.querySelectorAll(`.usermenu [data-help]${document.body.hasAttribute('data-nopalette') ? '' : ', .usermenu [data-palette]'}`).forEach(b => b.hidden = false);
   if (/Mac|iPhone|iPad/.test(navigator.platform)) document.querySelectorAll('.usermenu [data-palette] kbd').forEach(k => k.textContent = '⌘K');
   const m = $('#menu'), nav = $('#nav');
   if (m && nav) m.hidden = false;
@@ -310,6 +310,34 @@ document.addEventListener('input', e => { if (e.target.getAttribute?.('aria-inva
   });
 }
 
+// key hints: a [data-key] button or link shows its key (desktop: ui.css hides kbd on touch), a round icon-only one in its
+// tooltip, a nav link its g+letter. data-key is the one source; markup that already has a <kbd> keeps it.
+{
+  const kbd = k => Object.assign(document.createElement('kbd'), {textContent: k === ' ' ? 'Space' : k, ariaHidden: 'true'});
+  window.nbHints = () => {
+    document.querySelectorAll('[data-key]:is(button, .btn, a)').forEach(el => {
+      const k = el.dataset.key === ' ' ? 'Space' : el.dataset.key;
+      el.setAttribute('aria-keyshortcuts', k);
+      if (el.classList.contains('round')) { const t = el.title || el.getAttribute('aria-label') || ''; if (!t.endsWith(`(${k})`)) el.title = `${t} (${k})`.trim(); }
+      else if (!el.querySelector('kbd')) el.append(' ', kbd(k));
+    });
+    document.querySelectorAll('nav.app a[data-g]').forEach(a => { if (!a.querySelector('kbd')) a.append(' ', kbd('g ' + a.dataset.g)); });
+  };
+  nbHints();
+}
+
+// the ? help lists only what works here: a row (or span) with data-needs="<selector>" hides while nothing visible matches;
+// a table or "On this page" left empty hides too. window.openHelp() is the one way to open it.
+window.openHelp = () => {
+  const d = $('#help');
+  if (!d) return;
+  const shown = s => { try { return [...document.querySelectorAll(s)].some(el => !d.contains(el) && el.getClientRects().length); } catch { return true; } };
+  d.querySelectorAll('[data-needs]').forEach(r => r.hidden = !shown(r.dataset.needs));
+  d.querySelectorAll('table').forEach(t => t.hidden = ![...t.rows].some(r => !r.hidden));
+  d.querySelectorAll('.keys').forEach(p => p.hidden = ![...p.querySelectorAll('kbd')].some(k => !k.closest('[hidden]')));
+  d.showModal();
+};
+
 // keyboard, vim style. Page handlers first (window.pageKeys = {key: fn}, return false to fall through), then:
 // g+letter nav · / search · ? help · Ctrl+K or : palette · j/k rows · Enter open · h/l tabs · p/n pages · 1-9 chips · Esc up · [data-key] click
 {
@@ -338,7 +366,7 @@ document.addEventListener('input', e => { if (e.target.getAttribute?.('aria-inva
     const keys = {
       g: () => g = true,
       '/': () => window.openSearch ? window.openSearch() : $('#q')?.focus(),
-      '?': () => $('#help')?.showModal(),
+      '?': () => window.openHelp(),
       j: () => step(1), k: () => step(-1),
       Enter: () => { if (r[sel]) location = r[sel].dataset.href; },
       h: () => go(tabs[cur - 1]), l: () => go(tabs[cur + 1]),
@@ -419,8 +447,8 @@ const labelTables = () => document.querySelectorAll('main table:not(.keep)').for
 labelTables();
 
 // command palette: Ctrl+K (anywhere) or : opens it. Commands: the nav (g+letter), every visible [data-key] button or link,
-// theme, shortcuts help, the app's window.commands = [{label, sub, run}], and a search fallback.
-{
+// theme, shortcuts help, the app's window.commands = [{label, sub, run}], and a search fallback. <body data-nopalette>: none.
+if (!document.body.hasAttribute('data-nopalette')) {
   const pal = document.createElement('dialog');
   pal.className = 'palette';
   pal.setAttribute('aria-label', T['palette.title'] || 'commands');
@@ -436,7 +464,7 @@ labelTables();
     document.querySelectorAll('main [data-key]').forEach(el => { if (el.offsetParent !== null) c.push({label: text(el) || el.getAttribute('aria-label') || el.title, sub: el.dataset.key, run: () => el.click()}); });
     if ($('#theme')) c.push({label: T['palette.theme'] || 'switch theme', sub: '◐', run: () => $('#theme').click()});
     c.push({label: T['palette.design'] || 'switch design', sub: 'graphite · paper', run: () => setDesign(document.documentElement.dataset.design === 'paper' ? 'graphite' : 'paper')});
-    if ($('#help')) c.push({label: T['palette.help'] || 'keyboard shortcuts', sub: '?', run: () => $('#help').showModal()});
+    if ($('#help')) c.push({label: T['palette.help'] || 'keyboard shortcuts', sub: '?', run: () => window.openHelp()});
     return c.concat(window.commands || []).filter(x => x.label);
   };
   // match: contiguous first (earlier is better), then every letter in order; marks what matched
@@ -525,8 +553,8 @@ window.sessionCheck = () => {
   const renew = b.dataset.sessionRenew;
   bar.classList.toggle('ended', left <= 0);
   bar.innerHTML = left > 0
-    ? `<span>${esc((T['js.session.soon'] || 'Your session ends in {n} min.').replace('{n}', left))}</span>` + (renew ? `<button type="button" class="pri">${esc(T['js.session.renew'] || 'Stay signed in')}</button>` : '')
-    : `<span>${esc(T['js.session.ended'] || 'Your session has ended. This page keeps your input; sign in again to save.')}</span>` + (renew ? `<a class="btn pri" href="${esc(renew)}" target="_blank" rel="noopener">${esc(T['js.session.login'] || 'Sign in')}</a>` : '');
+    ? `<span>${esc((T['js.session.soon'] || 'Your session ends in {n} min.').replace('{n}', left))}</span>` + (renew ? `<button type="button" class="pri"><i class="icon-refresh" aria-hidden="true"></i> ${esc(T['js.session.renew'] || 'Stay signed in')}</button>` : '')
+    : `<span>${esc(T['js.session.ended'] || 'Your session has ended. This page keeps your input; sign in again to save.')}</span>` + (renew ? `<a class="btn pri" href="${esc(renew)}" target="_blank" rel="noopener"><i class="icon-log-in" aria-hidden="true"></i> ${esc(T['js.session.login'] || 'Sign in')}</a>` : '');
   $('button', bar)?.addEventListener('click', async () => {
     const r = await fetch(renew, {headers: {Accept: 'application/json'}}).catch(() => null), j = await r?.json().catch(() => ({})) || {};
     if (r?.ok && j.end) { b.dataset.sessionEnd = j.end; window.sessionCheck(); }
@@ -559,9 +587,9 @@ document.addEventListener('close', e => { if (location.hash === '#' + e.target.i
 }
 document.addEventListener('click', async e => {
   const o = e.target.closest('[data-open]'), c = e.target.closest('[data-copy]');
-  if (o) { e.preventDefault(); openDlg(o.dataset.open); }
-  else if (e.target.closest('[data-palette]')) { e.target.closest('details')?.removeAttribute('open'); window.openPalette(); }
-  else if (e.target.closest('[data-help]')) { e.target.closest('details')?.removeAttribute('open'); $('#help')?.showModal(); }
+  if (o) { e.preventDefault(); o.dataset.open === 'help' ? window.openHelp() : openDlg(o.dataset.open); }
+  else if (e.target.closest('[data-palette]')) { e.target.closest('details')?.removeAttribute('open'); window.openPalette?.(); }
+  else if (e.target.closest('[data-help]')) { e.target.closest('details')?.removeAttribute('open'); window.openHelp(); }
   else if (e.target.closest('[data-close]')) e.target.closest('dialog').close();
   else if (c) { await navigator.clipboard.writeText(c.dataset.copy).catch(() => {}); c.classList.add('done'); setTimeout(() => c.classList.remove('done'), 1200); } // the icon turns into a check
 });
@@ -593,7 +621,7 @@ window.toast = (msg, ok) => {
   if (!box) { box = document.createElement('div'); box.className = 'toasts'; box.setAttribute('role', 'status'); document.body.append(box); }
   const p = typeof msg === 'string' ? Object.assign(document.createElement('p'), {className: 'flash' + (ok ? ' ok' : ''), textContent: msg}) : msg;
   const x = document.createElement('button');
-  x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', T['js.close'] || 'close');
+  x.type = 'button'; x.className = 'x'; x.innerHTML = '<i class="icon-x" aria-hidden="true"></i>'; x.setAttribute('aria-label', T['js.close'] || 'close');
   x.onclick = () => p.remove();
   p.append(x);
   box.append(p);

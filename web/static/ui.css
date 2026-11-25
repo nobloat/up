@@ -152,6 +152,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-arrow-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3 8h10M9 4l4 4-4 4'/%3E%3C/svg%3E");
   --icon-arrow-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 13V3M4 7l4-4 4 4'/%3E%3C/svg%3E");
   --icon-bell: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4 11.5v-4a4 4 0 0 1 8 0v4l1 1H3zM6.5 14.5h3'/%3E%3C/svg%3E");
+  --icon-building: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 13.5h11M4 13.5v-11h6v11M10 6.5h2.5v7'/%3E%3Ccircle cx='5.75' cy='5' r='.9' fill='currentColor' stroke='none'/%3E%3Ccircle cx='8.25' cy='5' r='.9' fill='currentColor' stroke='none'/%3E%3Ccircle cx='5.75' cy='8' r='.9' fill='currentColor' stroke='none'/%3E%3Ccircle cx='8.25' cy='8' r='.9' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
   --icon-calendar: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2.5' y='3.5' width='11' height='10' rx='1.5'/%3E%3Cpath d='M2.5 6.5h11M5.5 2v3M10.5 2v3'/%3E%3C/svg%3E");
   --icon-camera-off: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='1.5' y='4' width='9.5' height='8' rx='1.5'/%3E%3Cpath d='M11 7l2.5-2.5h1v7h-1L11 9M2.5 2.5l11 11'/%3E%3C/svg%3E");
   --icon-camera: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='1.5' y='4' width='9.5' height='8' rx='1.5'/%3E%3Cpath d='M11 7l2.5-2.5h1v7h-1L11 9'/%3E%3C/svg%3E");
@@ -163,7 +164,9 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-chevron-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6 3.5 10.5 8 6 12.5'/%3E%3C/svg%3E");
   --icon-chevron-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3.5 10 8 5.5l4.5 4.5'/%3E%3C/svg%3E");
   --icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='5.8'/%3E%3Cpath d='M8 4.8V8l2 1.5'/%3E%3C/svg%3E");
+  --icon-code: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M5.5 5l-3 3 3 3M10.5 5l3 3-3 3'/%3E%3C/svg%3E");
   --icon-cog: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M13.06 6.43 15.01 6.85 15.01 9.15 13.06 9.57 12.69 10.47 13.77 12.14 12.14 13.77 10.47 12.69 9.57 13.06 9.15 15.01 6.85 15.01 6.43 13.06 5.53 12.69 3.86 13.77 2.23 12.14 3.31 10.47 2.94 9.57 .99 9.15 .99 6.85 2.94 6.43 3.31 5.53 2.23 3.86 3.86 2.23 5.53 3.31 6.43 2.94 6.85 .99 9.15 .99 9.57 2.94 10.47 3.31 12.14 2.23 13.77 3.86 12.69 5.53Z'/%3E%3Ccircle cx='8' cy='8' r='2.3'/%3E%3C/svg%3E");
+  --icon-columns: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2.5' y='2.5' width='11' height='11' rx='1'/%3E%3Cpath d='M6 2.5v11M10 2.5v11'/%3E%3C/svg%3E");
   --icon-contrast: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='5.8'/%3E%3Cpath d='M8 2.2a5.8 5.8 0 0 1 0 11.6z' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
   --icon-copy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='5.5' y='5.5' width='8' height='8' rx='1.5'/%3E%3Cpath d='M10.5 3.5V3A1.5 1.5 0 0 0 9 1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5'/%3E%3C/svg%3E");
   --icon-dashboard: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2.5' y='2.5' width='4.5' height='4.5' rx='1'/%3E%3Crect x='9' y='2.5' width='4.5' height='4.5' rx='1'/%3E%3Crect x='2.5' y='9' width='4.5' height='4.5' rx='1'/%3E%3Crect x='9' y='9' width='4.5' height='4.5' rx='1'/%3E%3C/svg%3E");
@@ -179,6 +182,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-focus-exit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5'/%3E%3C/svg%3E");
   --icon-focus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10'/%3E%3C/svg%3E");
   --icon-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z'/%3E%3C/svg%3E");
+  --icon-globe: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M2 8h12M8 2a3 6 0 0 0 0 12a3 6 0 0 0 0-12'/%3E%3C/svg%3E");
   --icon-hang-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M1.5 10a8.5 8.5 0 0 1 13 0v2.5H11v-2a5.5 5.5 0 0 0-6 0v2H1.5z'/%3E%3C/svg%3E");
   --icon-help: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M6.2 6.3a1.9 1.9 0 1 1 2.6 1.7c-.5.2-.8.6-.8 1.1v.4'/%3E%3Ccircle cx='8' cy='11.3' r='0.95' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
   --icon-home: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 7.5 8 3l5.5 4.5M4 6.5V13h3V9.5h2V13h3V6.5'/%3E%3C/svg%3E");
@@ -187,8 +191,10 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-link: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M7 9a2.8 2.8 0 0 0 4 0l2-2a2.8 2.8 0 0 0-4-4l-.8.8M9 7a2.8 2.8 0 0 0-4 0l-2 2a2.8 2.8 0 0 0 4 4l.8-.8'/%3E%3C/svg%3E");
   --icon-list: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M5.5 4h8M5.5 8h8M5.5 12h8'/%3E%3Ccircle cx='2.5' cy='4' r='0.95' fill='currentColor' stroke='none'/%3E%3Ccircle cx='2.5' cy='8' r='0.95' fill='currentColor' stroke='none'/%3E%3Ccircle cx='2.5' cy='12' r='0.95' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
   --icon-lock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='3.5' y='7' width='9' height='6.5' rx='1.5'/%3E%3Cpath d='M5.5 7V5a2.5 2.5 0 0 1 5 0v2'/%3E%3C/svg%3E");
+  --icon-log-in: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M9.5 2.5h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-3M2.5 8h7M6.5 5l3 3-3 3'/%3E%3C/svg%3E");
   --icon-mail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2' y='3.5' width='12' height='9' rx='1.5'/%3E%3Cpath d='M2.5 4.5 8 9l5.5-4.5'/%3E%3C/svg%3E");
   --icon-menu: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 4h11M2.5 8h11M2.5 12h11'/%3E%3C/svg%3E");
+  --icon-merge: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4.5 2.5v3L8 9v4.5M11.5 2.5v3L8 9'/%3E%3C/svg%3E");
   --icon-mic-off: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='6' y='2' width='4' height='7' rx='2'/%3E%3Cpath d='M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2M2.5 2.5l11 11'/%3E%3C/svg%3E");
   --icon-mic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='6' y='2' width='4' height='7' rx='2'/%3E%3Cpath d='M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2'/%3E%3C/svg%3E");
   --icon-minus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3 8h10'/%3E%3C/svg%3E");
@@ -212,7 +218,9 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-tag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6.5 2.5 5 13.5M11 2.5 9.5 13.5M3 6h10.5M2.5 10H13'/%3E%3C/svg%3E");
   --icon-trash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 4.5h11M6 4.5v-2h4v2M4 4.5l.8 9h6.4l.8-9M6.8 7v4.5M9.2 7v4.5'/%3E%3C/svg%3E");
   --icon-undo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M5 4 2 7l3 3M2 7h10v5H8'/%3E%3C/svg%3E");
+  --icon-unlock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='3.5' y='7' width='9' height='6.5' rx='1.5'/%3E%3Cpath d='M5.5 7V4.5a2.5 2.5 0 0 1 5 0'/%3E%3C/svg%3E");
   --icon-upload: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 10.5v-8M4.5 6 8 2.5 11.5 6M2.5 13.5h11'/%3E%3C/svg%3E");
+  --icon-user-x: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='6.5' cy='5.5' r='2.5'/%3E%3Cpath d='M2 13.5c.8-2.6 2.6-4 4.5-4s3.7 1.4 4.5 4M10.5 3.5l3 3M13.5 3.5l-3 3'/%3E%3C/svg%3E");
   --icon-user: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='8' cy='5.5' r='2.5'/%3E%3Cpath d='M3 13.5c.8-2.6 2.8-4 5-4s4.2 1.4 5 4'/%3E%3C/svg%3E");
   --icon-users: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='6' cy='5.5' r='2.2'/%3E%3Cpath d='M1.8 13c.6-2.3 2.2-3.6 4.2-3.6s3.6 1.3 4.2 3.6'/%3E%3Ccircle cx='11.2' cy='5' r='1.8'/%3E%3Cpath d='M11 9.4c1.7 0 3 1.1 3.4 3.1'/%3E%3C/svg%3E");
   --icon-warning: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 2.2 14.3 13H1.7z'/%3E%3Cpath d='M8 6.5v3'/%3E%3Ccircle cx='8' cy='11.2' r='0.95' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
@@ -224,6 +232,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-arrow-right { --icon: var(--icon-arrow-right); }
 .icon-arrow-up { --icon: var(--icon-arrow-up); }
 .icon-bell { --icon: var(--icon-bell); }
+.icon-building { --icon: var(--icon-building); }
 .icon-calendar { --icon: var(--icon-calendar); }
 .icon-camera-off { --icon: var(--icon-camera-off); }
 .icon-camera { --icon: var(--icon-camera); }
@@ -235,7 +244,9 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-chevron-right { --icon: var(--icon-chevron-right); }
 .icon-chevron-up { --icon: var(--icon-chevron-up); }
 .icon-clock { --icon: var(--icon-clock); }
+.icon-code { --icon: var(--icon-code); }
 .icon-cog { --icon: var(--icon-cog); }
+.icon-columns { --icon: var(--icon-columns); }
 .icon-contrast { --icon: var(--icon-contrast); }
 .icon-copy { --icon: var(--icon-copy); }
 .icon-dashboard { --icon: var(--icon-dashboard); }
@@ -251,6 +262,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-focus-exit { --icon: var(--icon-focus-exit); }
 .icon-focus { --icon: var(--icon-focus); }
 .icon-folder { --icon: var(--icon-folder); }
+.icon-globe { --icon: var(--icon-globe); }
 .icon-hang-up { --icon: var(--icon-hang-up); }
 .icon-help { --icon: var(--icon-help); }
 .icon-home { --icon: var(--icon-home); }
@@ -259,8 +271,10 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-link { --icon: var(--icon-link); }
 .icon-list { --icon: var(--icon-list); }
 .icon-lock { --icon: var(--icon-lock); }
+.icon-log-in { --icon: var(--icon-log-in); }
 .icon-mail { --icon: var(--icon-mail); }
 .icon-menu { --icon: var(--icon-menu); }
+.icon-merge { --icon: var(--icon-merge); }
 .icon-mic-off { --icon: var(--icon-mic-off); }
 .icon-mic { --icon: var(--icon-mic); }
 .icon-minus { --icon: var(--icon-minus); }
@@ -284,7 +298,9 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-tag { --icon: var(--icon-tag); }
 .icon-trash { --icon: var(--icon-trash); }
 .icon-undo { --icon: var(--icon-undo); }
+.icon-unlock { --icon: var(--icon-unlock); }
 .icon-upload { --icon: var(--icon-upload); }
+.icon-user-x { --icon: var(--icon-user-x); }
 .icon-user { --icon: var(--icon-user); }
 .icon-users { --icon: var(--icon-users); }
 .icon-warning { --icon: var(--icon-warning); }
@@ -295,7 +311,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .round:hover { color: var(--fg); }
 kbd { font: .78em var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 .3em; color: var(--muted); }
 button kbd, .btn kbd { margin-left: .4em; }
-:is(button, .btn, label, nav.app, .pager, .tabs, .chips) kbd:not(.umenu *, details.more .menu *) { display: none; } /* shortcuts live in ? and the palette, not on the controls */
+:is(.pri, .del, .leave) kbd { color: inherit; border-color: currentColor; } /* on a filled button the muted grey has no contrast */
+nav.app a kbd { margin-left: .35em; }
+:is(label, .pager, .tabs, .chips, .round) kbd:not(.umenu *, details.more .menu *) { display: none; } /* positional keys live in ?; a round button names its key in the tooltip */
 /* busy: ui.js sets aria-busy on the submit button; the spinner replaces nothing, so the label stays readable */
 [aria-busy="true"]::after, .spin { content: ""; display: inline-block; width: .8em; height: .8em; margin-left: .5em; vertical-align: -.1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

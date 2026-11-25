@@ -32,7 +32,7 @@ var webFS embed.FS
 
 var (
 	staticFS, _ = fs.Sub(webFS, "web/static")
-	funcs       = template.FuncMap{"rel": rel, "linkify": linkify, "st": stClass, "evicon": evIcon, "upper": strings.ToUpper, "tsf": func(t time.Time) string { return t.Local().Format("2006-01-02 15:04:05 MST") }}
+	funcs       = template.FuncMap{"rel": rel, "linkify": linkify, "st": stClass, "sticon": stIcon, "evicon": evIcon, "upper": strings.ToUpper, "tsf": func(t time.Time) string { return t.Local().Format("2006-01-02 15:04:05 MST") }}
 	// every page: nobloat/ui's partials first, then up's shared parts, then the page's "main"
 	pages = func() map[string]*template.Template {
 		out := map[string]*template.Template{}
@@ -309,6 +309,11 @@ type light struct{ Class, Label string }
 // stClass maps up's states to nobloat/ui's status classes.
 func stClass(state string) string {
 	return cmp.Or(map[string]string{green: "ok", yellow: "pend", red: "bad"}[state], "off")
+}
+
+// stIcon: a state chip's icon (nobloat/ui vocabulary).
+func stIcon(state string) string {
+	return cmp.Or(map[string]string{green: "ok", yellow: "refresh", red: "warning", "paused": "pause"}[state], "info")
 }
 
 func evIcon(event string) string {

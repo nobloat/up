@@ -88,20 +88,20 @@ The page value (dot) needs:
 <table>
 {{if .Nav}}<tr><td><kbd>g</kbd> {{range .Nav}}{{with .Key}}<kbd>{{.}}</kbd> {{end}}{{end}}</td><td>{{.T "help.goto"}}</td></tr>{{end}}
 {{if .Search}}<tr><td><kbd>/</kbd></td><td>{{.T "help.search"}}</td></tr>{{end}}
-<tr><td><kbd>Ctrl</kbd> <kbd>k</kbd> · <kbd>:</kbd></td><td>{{.T "help.palette"}}</td></tr>
-<tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>{{.T "help.jk"}}</td></tr>
-<tr><td><kbd>Enter</kbd></td><td>{{.T "help.enter"}}</td></tr>
-<tr><td><kbd>h</kbd> <kbd>l</kbd></td><td>{{.T "help.hl"}}</td></tr>
-<tr><td><kbd>p</kbd> <kbd>n</kbd></td><td>{{.T "help.pages"}}</td></tr>
-<tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>{{.T "help.chips"}}</td></tr>
-<tr><td><kbd>x</kbd></td><td>{{.T "help.x"}}</td></tr>
+<tr data-needs="body:not([data-nopalette])"><td><kbd>Ctrl</kbd> <kbd>k</kbd> · <kbd>:</kbd></td><td>{{.T "help.palette"}}</td></tr>
+<tr data-needs="main :is(tr, .rows > li)[data-href]"><td><kbd>j</kbd> <kbd>k</kbd></td><td>{{.T "help.jk"}}</td></tr>
+<tr data-needs="main :is(tr, .rows > li)[data-href]"><td><kbd>Enter</kbd></td><td>{{.T "help.enter"}}</td></tr>
+<tr data-needs=".tabs a"><td><kbd>h</kbd> <kbd>l</kbd></td><td>{{.T "help.hl"}}</td></tr>
+<tr data-needs=".pager"><td><kbd>p</kbd> <kbd>n</kbd></td><td>{{.T "help.pages"}}</td></tr>
+<tr data-needs="main .chips a.chip"><td><kbd>1</kbd>…<kbd>9</kbd></td><td>{{.T "help.chips"}}</td></tr>
+<tr data-needs="td.pick input"><td><kbd>x</kbd></td><td>{{.T "help.x"}}</td></tr>
 <tr><td><kbd>Esc</kbd></td><td>{{.T "help.esc"}}</td></tr>
 {{block "help" .}}{{end}}
 </table>
 <p class="keys">{{.T "help.page"}}{{block "keys" .}}{{end}}</p>
-<form method="dialog" class="row end"><button>{{.T "btn.close"}} <kbd>Esc</kbd></button></form>
+<form method="dialog" class="row end"><button><i class="icon-x" aria-hidden="true"></i> {{.T "btn.close"}} <kbd>Esc</kbd></button></form>
 </dialog>
-<dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title" hidden></h2><p id="confirm-text"></p><form method="dialog" class="row end"><button value="no">{{.T "btn.cancel"}} <kbd>Esc</kbd></button><button value="yes" class="pri" autofocus>{{.T "btn.ok"}} <kbd>Enter</kbd></button></form></dialog>
+<dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title" hidden></h2><p id="confirm-text"></p><form method="dialog" class="row end"><button value="no"><i class="icon-x" aria-hidden="true"></i> {{.T "btn.cancel"}} <kbd>Esc</kbd></button><button value="yes" class="pri" autofocus><i class="icon-check" aria-hidden="true"></i> {{.T "btn.ok"}} <kbd>Enter</kbd></button></form></dialog>
 <script type="application/json" id="texts">{{.Texts}}</script>
 <script src="/static/ui.js"></script>
 {{block "scripts" .}}{{end}}{{end}}

@@ -5,11 +5,11 @@
 <link rel="apple-touch-icon" href="/static/app-icon.png">
 <meta name="apple-mobile-web-app-title" content="up">{{end}}
 
-{{define "help"}}<tr><td><kbd>c</kbd></td><td>{{.T "help.new"}}</td></tr>
-<tr><td><kbd>e</kbd></td><td>{{.T "help.edit"}}</td></tr>
-<tr><td><kbd>r</kbd></td><td>{{.T "help.check"}}</td></tr>
-<tr><td><kbd>p</kbd></td><td>{{.T "help.pause"}}</td></tr>
-<tr><td><kbd>Ctrl</kbd> <kbd>Enter</kbd></td><td>{{.T "help.save"}}</td></tr>{{end}}
+{{define "help"}}<tr data-needs="[data-key=c]"><td><kbd>c</kbd></td><td>{{.T "help.new"}}</td></tr>
+<tr data-needs="[data-key=e]"><td><kbd>e</kbd></td><td>{{.T "help.edit"}}</td></tr>
+<tr data-needs="form.check"><td><kbd>r</kbd></td><td>{{.T "help.check"}}</td></tr>
+<tr data-needs="form.pause, form.resume"><td><kbd>p</kbd></td><td>{{.T "help.pause"}}</td></tr>
+<tr data-needs="form.edit"><td><kbd>Ctrl</kbd> <kbd>Enter</kbd></td><td>{{.T "help.save"}}</td></tr>{{end}}
 
 {{define "scripts"}}<dialog id="pause-dialog" aria-labelledby="pause-h">
 <h2 id="pause-h">{{.T "pause.title"}} <b id="pause-name"></b></h2>
@@ -25,7 +25,7 @@
 <output id="pause-end" class="hint" for="pause-at"></output>
 <datalist id="pause-for"><option value="15m"><option value="30m"><option value="1h"><option value="2h"><option value="4h"><option value="8h"><option value="12h"><option value="1d"><option value="2d"><option value="3d"><option value="7d"><option value="14d"></datalist>
 <input type="hidden" name="until">
-<div class="full row end"><button type="button" data-close>{{.T "btn.cancel"}} <kbd>Esc</kbd></button><button class="pri"><i class="icon-pause" aria-hidden="true"></i> {{.T "btn.pause"}} <kbd>Enter</kbd></button></div>
+<div class="full row end"><button type="button" data-close><i class="icon-x" aria-hidden="true"></i> {{.T "btn.cancel"}} <kbd>Esc</kbd></button><button class="pri"><i class="icon-pause" aria-hidden="true"></i> {{.T "btn.pause"}} <kbd>Enter</kbd></button></div>
 </form>
 </dialog>
 <script type="module" src="/static/app.js"></script>{{end}}

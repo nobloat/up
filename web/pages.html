@@ -11,4 +11,4 @@
 </table>{{else}}<div class="empty"><p>{{.T "pages.none"}}</p>{{if .Edit}}<a class="btn new" href="/new?kind=page">{{.T "btn.new.page"}}</a>{{end}}</div>{{end}}
 <p class="muted"><small>{{.T "pages.hint"}}</small></p>{{end}}
 
-{{define "keys"}} · <kbd>j</kbd>/<kbd>k</kbd> {{.T "key.row"}} · <kbd>Enter</kbd> {{.T "key.open"}}{{if .Edit}} · <kbd>c</kbd> {{.T "key.new"}}{{end}}{{end}}
+{{define "keys"}}<span data-needs="main :is(tr, .rows > li)[data-href]"> · <kbd>j</kbd>/<kbd>k</kbd> {{.T "key.row"}} · <kbd>Enter</kbd> {{.T "key.open"}}</span>{{if .Edit}} · <kbd>c</kbd> {{.T "key.new"}}{{end}}{{end}}
