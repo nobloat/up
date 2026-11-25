@@ -1,6 +1,7 @@
 {{/* nobloat/ui v1 partials: copy unchanged to web/partials.html and parse it before the pages.
 A page defines "main" and runs {{template "nb-layout" .}}; it may also define "head" (extra <head> tags),
-"keys" (page shortcuts, each starting with " · ", shown in the ? help), "help" (extra <tr> rows) and "scripts".
+"keys" (page shortcuts, each starting with " · ", shown in the ? help), "help" (extra <tr> rows), "scripts" and
+"bodyattr" (attributes on <body>, each with a leading space: {{define "bodyattr"}} data-nopalette{{end}}).
 
 The page value (dot) needs:
   .Lang .Title .Here .Q .Version string     .Err .Notice string (flash); the footer (product, src, version) shows only with .User
@@ -107,7 +108,7 @@ The page value (dot) needs:
 {{block "scripts" .}}{{end}}{{end}}
 
 {{define "nb-layout"}}{{template "nb-head" .}}
-<body{{with .SessionEnd}} data-session-end="{{.}}"{{end}}{{with .SessionRenew}} data-session-renew="{{.}}"{{end}}>
+<body{{with .SessionEnd}} data-session-end="{{.}}"{{end}}{{with .SessionRenew}} data-session-renew="{{.}}"{{end}}{{block "bodyattr" .}}{{end}}>
 <a class="skip" href="#main">{{.T "nav.skip"}}</a>
 {{template "nb-header" .}}
 <main id="main">{{template "nb-crumbs" .}}{{template "nb-flash" .}}{{template "main" .}}</main>
@@ -116,7 +117,7 @@ The page value (dot) needs:
 </html>{{end}}
 
 {{define "nb-bare"}}{{template "nb-head" .}}
-<body class="center">
+<body class="center"{{block "bodyattr" .}}{{end}}>
 {{template "nb-logo" .}}
 <main>{{template "nb-flash" .}}{{template "main" .}}</main>
 {{template "nb-foot" .}}
