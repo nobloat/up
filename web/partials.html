@@ -129,7 +129,7 @@ Each code above shows on a dot-matrix display (nb-error-dots, 5×7 digits, gener
 {{define "nb-error"}}{{with .Error}}<div class="error"><div class="vis">{{template "nb-error-dots" .Code}}{{template "nb-error-art" .Code}}</div><div>
 <p class="code"><i class="icon-{{template "nb-error-icon" .Code}}" aria-hidden="true"></i> {{.Code}} · {{$.T (printf "nberr.%d" .Code)}}</p>
 <h1>{{with .What}}{{$.T "nberr.404.what" .}}{{else}}{{$.T (printf "nberr.%d.title" $.Error.Code)}}{{end}}</h1>
-{{if eq .Code 403}}<p>{{with $.User}}{{$.T "nberr.403.who" .}}{{with $.Error.Groups}} ({{range $i, $g := .}}{{if $i}} {{end}}<span class="tag">{{$g}}</span>{{end}}){{end}}. {{end}}{{with $.Error.Need}}{{$.T "nberr.403.need" .}}{{end}}</p>{{end}}
+{{if eq .Code 403}}<p>{{with $.User}}{{$.T "nberr.403.who" .}}{{with $.Error.Groups}} <span class="groups">{{range $i, $g := .}}{{if $i}} <span class="tag">{{$g}}</span>{{else}}<span class="nw">(<span class="tag">{{$g}}</span></span>{{end}}{{end}}</span>{{end}}. {{end}}{{with $.Error.Need}}{{$.T "nberr.403.need" .}}{{end}}</p>{{end}}
 <p>{{$.T (printf "nberr.%d.text" .Code)}}{{with .Limit}} {{$.T "nberr.413.limit" .}}{{end}}</p>
 {{with .Ref}}<p><code class="id">{{.}}</code> <button type="button" class="round copy" data-copy="{{.}}" title="{{$.T "btn.copy"}}" aria-label="{{$.T "btn.copy"}} {{.}}"></button></p>{{end}}
 {{with .Retry}}<p class="muted" data-retry="{{.}}">{{$.T "nberr.retry" .}}</p>{{end}}
