@@ -244,6 +244,7 @@ type page struct {
 	LogoutURL, SettingsURL     string
 	SessionEnd, SessionRenew   string
 	Texts                      map[string]string
+	Error                      *errorInfo // error pages (nb-error)
 
 	U           *User
 	AccountURL  string
@@ -271,11 +272,21 @@ type page struct {
 	Templates   []confTemplate
 	AllowedTags []string
 	AnyTag      bool // AllowedTags doesn't apply
-	Code        int  // error pages
-	ErrTitle    string
-	ErrText     string
-	Ref         string
 	S           *StatusPage
+}
+
+// errorInfo and action are nobloat/ui's .Error for nb-error (partials.html documents the fields).
+type errorInfo struct {
+	Code                   int
+	What, Need, Limit, Ref string
+	Groups                 []string
+	Retry                  int
+	Actions                []action
+}
+
+type action struct {
+	Href, Label, Icon, Key string
+	Palette                bool
 }
 
 type brand struct{ App, Char, Name, Color, ColorDark, Logo, LogoDark, Icon, Design string }
@@ -667,7 +678,9 @@ func (a *App) settings(w http.ResponseWriter, r *http.Request) {
 	render(w, "settings", p)
 }
 
-// errPage answers code with a page in the app's layout; what names the missing object of a 404, or the panic of a 500.
+// errPage answers code with nobloat/ui's error page (nb-error, texts from ui): in the app's layout for a user
+// with a role, else nb-bare (signed out, no role, the public status pages). what names the missing object of
+// a 404, the role a 403 needs, or the panic of a 500.
 func (a *App) errPage(w http.ResponseWriter, r *http.Request, code int, what string) {
 	u := userOf(r)
 	if u == nil {
@@ -677,21 +690,38 @@ func (a *App) errPage(w http.ResponseWriter, r *http.Request, code int, what str
 	if u.Role > none {
 		p = a.page(u, nil, a.views(u, nil, "", "", "", false))
 	}
-	p.Code = code
-	a.dress(&p, r, r.URL.RequestURI(), "err."+strconv.Itoa(code)+".code")
+	a.dress(&p, r, r.URL.RequestURI(), "nberr."+strconv.Itoa(code)+".title")
+	e := &errorInfo{Code: code}
+	monitors := action{Href: "/", Label: p.T("err.monitors"), Icon: "list"}
 	switch code {
+	case http.StatusUnauthorized:
+		e.Actions = []action{{Href: p.Here, Label: p.T("js.session.login"), Icon: "log-in"}}
 	case http.StatusNotFound:
-		p.ErrTitle, p.ErrText = p.T("err.404.title", cmp.Or(what, r.URL.Path)), p.T("err.404.text")
+		e.What = what
+		if u.Role > none {
+			e.Actions = []action{monitors, {Label: p.T("palette.search"), Icon: "search", Palette: true}}
+		}
 	case http.StatusForbidden:
-		p.ErrTitle, p.ErrText = p.T("err.403.title"), p.T("err.403.text", cmp.Or(u.Name, "?"), u.Role)
+		p.User, e.Groups, e.Need = cmp.Or(u.Name, p.User), u.Groups, strings.Join(a.cfg.Load().Roles[what], ", ")
+		if u.Role > none {
+			e.Actions = []action{monitors, {Href: "/settings", Label: p.T("err.account"), Icon: "user"}}
+		} else if p.LogoutURL != "" {
+			e.Actions = []action{{Href: p.LogoutURL, Label: p.T("nav.logout"), Icon: "power"}}
+		}
+	case http.StatusTooManyRequests:
 	default:
-		p.Ref = "ERR-" + strings.ToUpper(rand.Text()[:8])
-		p.ErrTitle, p.ErrText = p.T("err.500.title"), p.T("err.500.text")
-		slog.Error("internal error", "ref", p.Ref, "path", r.URL.Path, "err", what)
+		e.Ref = "ERR-" + strings.ToUpper(rand.Text()[:8])
+		e.Actions = []action{{Href: p.Here, Label: p.T("err.retry"), Icon: "refresh"}, monitors}
+		slog.Error("internal error", "ref", e.Ref, "path", r.URL.Path, "err", what)
+	}
+	p.Error = e
+	layout := "nb-layout"
+	if u.Role == none {
+		layout = "nb-bare"
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
-	if err := pages["error"].ExecuteTemplate(w, "nb-layout", p); err != nil {
+	if err := pages["error"].ExecuteTemplate(w, layout, p); err != nil {
 		slog.Error("render", "page", "error", "err", err)
 	}
 }
@@ -718,7 +748,7 @@ func (a *App) needUI(w http.ResponseWriter, r *http.Request, min role) bool {
 	if userOf(r).Role >= min || wantsJSON(r) {
 		return need(w, r, min)
 	}
-	a.errPage(w, r, http.StatusForbidden, "")
+	a.errPage(w, r, http.StatusForbidden, min.String())
 	return false
 }
 
@@ -1137,7 +1167,7 @@ func (a *App) statusPage(w http.ResponseWriter, r *http.Request) {
 	cfg := a.cfg.Load()
 	i := slices.IndexFunc(cfg.StatusPages, func(p *StatusPageConfig) bool { return p.Slug == r.PathValue("slug") })
 	if i < 0 {
-		http.NotFound(w, r)
+		a.errPage(w, r, http.StatusNotFound, "")
 		return
 	}
 	sp := cfg.StatusPages[i]

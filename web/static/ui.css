@@ -451,6 +451,42 @@ tr:has(td.pick :checked) td:first-child { box-shadow: inset 3px 0 0 var(--accent
 .error .code { color: var(--muted); font-size: .9em; letter-spacing: .1em; }
 .error h1 { margin: .3rem 0 1rem; }
 .error .row { margin-top: 1.5rem; }
+.error .tag:last-of-type { margin-right: 0; } /* in a sentence: "(#editor)." */
+/* the code on a dot-matrix display, an LED panel in light and dark: its dots in the brand color (--accent), lit dots glow in the dark */
+.error:has(.vis > svg) { max-width: 60rem; display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 3rem; align-items: start; }
+.error .vis { display: grid; gap: 1.4rem; align-content: start; } .error .vis:empty { display: none; }
+.error .dots { display: block; width: 100%; height: auto; margin-top: .3rem; border-radius: 12px;
+  background: light-dark(color-mix(in srgb, var(--fg) 5%, var(--bg)), #0d0e10);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 12%, transparent), inset 0 1px 6px light-dark(#0000000f, #000c); }
+.error .dots .off { fill: light-dark(color-mix(in srgb, var(--fg) 9%, transparent), #ffffff10); }
+.error .dots .on { --lit: light-dark(var(--accent), oklch(from var(--accent) max(l, .72) c h));
+  fill: var(--lit); filter: drop-shadow(0 0 2.2px light-dark(transparent, var(--lit))); animation: dot-on .35s ease-out both; animation-delay: calc(var(--i) * 28ms); }
+@keyframes dot-on { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .error .dots .on { animation: none; } }
+body.center .error:has(.vis > svg) { grid-template-columns: 1fr; gap: 1.5rem; } body.center .error .vis { grid-template-columns: 1fr 1fr; align-items: center; gap: 1rem; } body.center .error .dots { margin: 0; } /* public pages: a narrow column; display and drawing side by side above the text */ /* public pages: a narrow column, the panel above the text */
+@media (max-width: 40rem) { .error:has(.vis > svg) { grid-template-columns: 1fr; gap: 1.2rem; margin-top: 1.5rem; } .error .vis { grid-template-columns: 1fr 1fr; align-items: center; gap: .8rem; } .error .dots { margin: 0; } }
+/* the drawing under the display: the nobloat mark ][◆ and what happens to it */
+.error .art { display: block; width: 100%; height: auto; }
+.error .art { color: var(--grey, var(--muted)); }
+.error .art .br { stroke-width: 2.5; }
+.error .art .thin { stroke-width: 1.5; } .error .art .w3 { stroke-width: 3; } .error .art .w4 { stroke-width: 4; } .error .art .w6 { stroke-width: 6; }
+.error .art g .w2 { stroke-width: .7; } .error .art g .w3 { stroke-width: 1.3; }
+.error .art .a { stroke: var(--accent); }
+.error .art .af { fill: var(--accent); stroke: none; }
+.error .art .at { fill: color-mix(in srgb, var(--accent) 14%, var(--bg)); }
+.error .art .bg { fill: var(--bg); }
+.error .art .sign { fill: var(--accent); stroke: none; }
+.error .art .sign.dim { opacity: .6; }
+.error .art .sign.faded { opacity: .28; }
+.error .art .lim { stroke-dasharray: 4 3; }
+.error .art .ghostc { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3.5; }
+.error .art .dash { stroke-dasharray: 3 3; }
+.error .art .bgf { fill: var(--bg); stroke: none; }
+.error .art .br3 { stroke-width: 7.5; }
+.error .art .butt { stroke-linecap: butt; }
+.error .art .soft { stroke: color-mix(in srgb, currentColor 45%, transparent); }
+.error .art .ghost { fill: none; stroke: var(--accent); stroke-width: .6; stroke-dasharray: 1.4 1.2; }
+
 /* uploads: a dashed zone (the label of a file input) and a plain upload button; ui.js adds .ready while files are dragged
    over the window and .over over the zone */
 .drop { position: relative; display: grid; justify-items: center; gap: .35rem; padding: 1.4rem 1rem; border: 2px dashed var(--muted); border-radius: var(--r-lg); text-align: center; cursor: pointer; color: var(--muted); transition: border-color .15s, background-color .15s; }

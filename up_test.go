@@ -2233,8 +2233,14 @@ func TestUILayout(t *testing.T) {
 		if resp, b := e.do("GET", "/monitor/nope", "admin", ""); resp.StatusCode != 404 || !strings.Contains(b, "There is no monitor nope") || !strings.Contains(b, `<nav class="app"`) {
 			t.Fatalf("404: %d %s", resp.StatusCode, b)
 		}
-		if resp, b := e.do("GET", "/new", "", "", "Remote-User", "v", "Remote-Groups", "up-viewer,team-a"); resp.StatusCode != 403 || !strings.Contains(b, "signed in as v with the role viewer") {
+		if resp, b := e.do("GET", "/new", "", "", "Remote-User", "v", "Remote-Groups", "up-viewer,team-a"); resp.StatusCode != 403 || !strings.Contains(b, "signed in as v (") || !strings.Contains(b, `<span class="tag">up-viewer</span>`) {
 			t.Fatalf("403: %d %s", resp.StatusCode, b)
+		}
+		for path, code := range map[string]int{"/status/nope": 404, "/a/b/c": 401, "/api/monitors": 401} { // nb-error for a browser, not Go's plain text; the API stays plain
+			resp, b := e.do("GET", path, "", "")
+			if html := strings.Contains(b, `<div class="error">`); resp.StatusCode != code || html == strings.HasPrefix(path, "/api/") {
+				t.Fatalf("%s: %d %s", path, resp.StatusCode, b)
+			}
 		}
 		edit := e.get("/edit/monitor/a")
 		rev := regexp.MustCompile(`name="rev" value="([0-9a-f]+)"`).FindStringSubmatch(edit)

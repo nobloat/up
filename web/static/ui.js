@@ -338,6 +338,13 @@ window.openHelp = () => {
   d.showModal();
 };
 
+// error pages (429, 503): [data-retry=seconds] counts down and reloads the page at 0
+document.querySelectorAll('[data-retry]').forEach(el => {
+  let n = +el.dataset.retry;
+  const tick = () => { if (n <= 0) return location.reload(); el.textContent = (T['js.retry'] || 'Trying again in {n} s.').replace('{n}', n--); setTimeout(tick, 1000); };
+  tick();
+});
+
 // keyboard, vim style. Page handlers first (window.pageKeys = {key: fn}, return false to fall through), then:
 // g+letter nav · / search · ? help · Ctrl+K or : palette · j/k rows · Enter open · h/l tabs · p/n pages · 1-9 chips · Esc up · [data-key] click
 {

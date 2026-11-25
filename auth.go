@@ -29,10 +29,11 @@ func (r role) String() string { return [...]string{"none", "viewer", "editor", "
 
 // User is who sent the request: basic auth (always admin) or the IdP headers of a trusted proxy.
 type User struct {
-	Name string
-	Role role
-	Tags []string // monitors with any of these tags are visible; "*" is all
-	SSO  bool     // from the IdP headers: shown in the header with account and logout links
+	Name   string
+	Role   role
+	Tags   []string // monitors with any of these tags are visible; "*" is all
+	Groups []string // from the IdP headers, shown on the 403 page
+	SSO    bool     // from the IdP headers: shown in the header with account and logout links
 }
 
 type ctxKey struct{}
@@ -46,7 +47,12 @@ func (u *User) sees(mc *MonitorConfig) bool {
 
 func (a *App) auth(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		browser := r.Method == http.MethodGet && !wantsJSON(r) && !strings.HasPrefix(r.URL.Path, "/api/") // a browser gets nb-error
 		if r.Header.Get("Authorization") != "" && a.guesses.locked(a.clientIP(r)) {
+			if browser {
+				a.errPage(w, r, http.StatusTooManyRequests, "")
+				return
+			}
 			http.Error(w, "too many failed logins, try again later", http.StatusTooManyRequests)
 			return
 		}
@@ -56,9 +62,13 @@ func (a *App) auth(h http.Handler) http.Handler {
 			if a.cfg.Load().Auth.User != "" {
 				w.Header().Set("WWW-Authenticate", `Basic realm="][• up", charset="UTF-8"`)
 			}
+			if browser {
+				a.errPage(w, r, http.StatusUnauthorized, "")
+				return
+			}
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-		case u.Role == none && r.Method == http.MethodGet && !wantsJSON(r) && !strings.HasPrefix(r.URL.Path, "/api/"):
-			a.errPage(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)), http.StatusForbidden, "")
+		case u.Role == none && browser:
+			a.errPage(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)), http.StatusForbidden, viewer.String())
 		case u.Role == none:
 			http.Error(w, "forbidden", http.StatusForbidden)
 		default:
@@ -90,6 +100,7 @@ func (a *App) resolve(r *http.Request) *User {
 		if g = strings.TrimSpace(g); g == "" {
 			continue
 		}
+		u.Groups = append(u.Groups, g)
 		u.Tags = append(u.Tags, c.Access[g]...)
 		for name, groups := range c.Roles {
 			if slices.Contains(groups, g) {
