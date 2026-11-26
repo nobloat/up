@@ -1559,7 +1559,7 @@ func TestAPIAndUI(t *testing.T) {
 			t.Fatalf("post without auth: %d", resp.StatusCode)
 		}
 
-		if b := e.get("/"); !strings.Contains(b, `href="/monitor/web"`) || !strings.Contains(b, `data-red="2"`) || !strings.Contains(b, "<title>][• up · Monitors (2 failing)</title>") ||
+		if b := e.get("/"); !strings.Contains(b, `href="/monitor/web"`) || !strings.Contains(b, `data-red="2"`) || !strings.Contains(b, "<title>Monitors (2 failing) · up</title>") ||
 			!strings.Contains(b, `data-state="red"`) || !strings.Contains(b, `href="/static/favicon-red.svg"`) {
 			t.Fatalf("list: %s", b)
 		}

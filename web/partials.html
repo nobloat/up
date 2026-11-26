@@ -24,8 +24,11 @@ The page value (dot) needs:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{template "nb-name" .}}{{with .Title}} · {{.}}{{end}}</title>
+<title>{{with .Title}}{{.}} · {{end}}{{or .Brand.Name .Brand.App}}</title>
 <link rel="icon" href="{{or .Brand.Icon "/static/favicon.svg"}}">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/app-icon.png">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#1f2022" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="/static/ui.css">
 {{with .Brand.Color}}<style>:root { --brand: {{.}};{{with $.Brand.ColorDark}} --brand-dark: {{.}};{{end}} }</style>{{end}}
 <script>try { const r = document.documentElement, t = localStorage.getItem('theme'), d = localStorage.getItem('design'); if (t) r.dataset.theme = t; if (d === 'paper') r.dataset.design = d; else if (d) delete r.dataset.design; } catch {}</script>

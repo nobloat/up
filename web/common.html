@@ -1,8 +1,6 @@
 {{/* up's parts shared by every signed-in page; nobloat/ui's partials.html is parsed before this file */}}
 
 {{define "head"}}<link rel="stylesheet" href="/static/app.css">
-<link rel="manifest" href="/static/manifest.json">
-<link rel="apple-touch-icon" href="/static/app-icon.png">
 <meta name="apple-mobile-web-app-title" content="up">{{end}}
 
 {{define "help"}}<tr data-needs="[data-key=c]"><td><kbd>c</kbd></td><td>{{.T "help.new"}}</td></tr>
