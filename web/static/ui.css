@@ -153,6 +153,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
   --icon-arrow-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M8 13V3M4 7l4-4 4 4'/%3E%3C/svg%3E");
   --icon-audit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 2.5h11V8c0 3-2.5 5-5.5 6-3-1-5.5-3-5.5-6z'/%3E%3Cpath d='M5.5 7.5l2 2 3-3'/%3E%3C/svg%3E");
   --icon-bell: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4 11.5v-4a4 4 0 0 1 8 0v4l1 1H3zM6.5 14.5h3'/%3E%3C/svg%3E");
+  --icon-blocks: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2.5' y='2.5' width='11' height='4.5' rx='1'/%3E%3Crect x='2.5' y='9' width='4.5' height='4.5' rx='1'/%3E%3Crect x='9' y='9' width='4.5' height='4.5' rx='1'/%3E%3C/svg%3E");
   --icon-building: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M2.5 13.5h11M4 13.5v-11h6v11M10 6.5h2.5v7'/%3E%3Ccircle cx='5.75' cy='5' r='.9' fill='currentColor' stroke='none'/%3E%3Ccircle cx='8.25' cy='5' r='.9' fill='currentColor' stroke='none'/%3E%3Ccircle cx='5.75' cy='8' r='.9' fill='currentColor' stroke='none'/%3E%3Ccircle cx='8.25' cy='8' r='.9' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
   --icon-calendar: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='2.5' y='3.5' width='11' height='10' rx='1.5'/%3E%3Cpath d='M2.5 6.5h11M5.5 2v3M10.5 2v3'/%3E%3C/svg%3E");
   --icon-camera: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.25' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='1.5' y='4' width='9.5' height='8' rx='1.5'/%3E%3Cpath d='M11 7l2.5-2.5h1v7h-1L11 9'/%3E%3C/svg%3E");
@@ -242,6 +243,7 @@ button.danger, .btn.danger, button.del, .btn.del { --c: var(--red); color: var(-
 .icon-arrow-up { --icon: var(--icon-arrow-up); }
 .icon-audit { --icon: var(--icon-audit); }
 .icon-bell { --icon: var(--icon-bell); }
+.icon-blocks { --icon: var(--icon-blocks); }
 .icon-building { --icon: var(--icon-building); }
 .icon-calendar { --icon: var(--icon-calendar); }
 .icon-camera { --icon: var(--icon-camera); }

@@ -29,7 +29,8 @@ document.addEventListener('submit', async e => {
   }
   delete f.dataset.confirmed;
   if (f.target === '_blank') return;
-  e.submitter?.setAttribute('aria-busy', 'true');
+  // busy and disabled while it runs (aria-disabled, not disabled: a disabled submitter would drop its name=value from the POST)
+  e.submitter?.setAttribute('aria-busy', 'true'); e.submitter?.setAttribute('aria-disabled', 'true');
   // ponytail: a 3 s window, not "until the next page": a POST that answers with a download never navigates
   f.nbSent = true;
   setTimeout(() => { if (e.defaultPrevented) f.nbSent = false; }); // app.js handled it itself (fetch): no block
